@@ -299,7 +299,7 @@
       color: var(--accent-pink);
     }
 
-    /* Kasir Summary Panel */
+    /* Kasir Summary Panel yang Tersusun Rapi */
     .summary-panel {
       background: var(--card-bg);
       border: 1px solid rgba(0, 240, 255, 0.3);
@@ -344,11 +344,19 @@
       box-shadow: 0 0 12px var(--accent-pink);
     }
 
-    .summary-grid {
+    .summary-section-title {
+      font-size: 0.85rem;
+      color: var(--border-glow);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 0.3rem;
+      font-weight: 700;
+    }
+
+    .summary-grid-4 {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 1rem;
-      align-items: center;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.8rem;
     }
 
     .summary-item {
@@ -372,9 +380,30 @@
       color: #fff;
     }
 
-    .summary-val.payment {
+    .summary-total-box {
+      background: rgba(0, 255, 136, 0.05);
+      border: 1px solid var(--accent-green);
+      border-radius: 12px;
+      padding: 0.9rem;
+      text-align: center;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 0.3rem;
+    }
+
+    .summary-total-label {
+      font-size: 0.9rem;
       color: var(--accent-green);
-      font-size: 1.3rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .summary-total-val {
+      font-size: 1.4rem;
+      font-weight: 900;
+      color: var(--accent-green);
       text-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
     }
 
@@ -386,7 +415,7 @@
       .timer-container {
         grid-template-columns: repeat(2, 1fr);
       }
-      .summary-grid {
+      .summary-grid-4 {
         grid-template-columns: repeat(2, 1fr);
       }
     }
@@ -404,14 +433,25 @@
   <!-- Container Timer Utama -->
   <div class="timer-container" id="timerContainer"></div>
 
-  <!-- Panel Ringkasan Kasir di Bagian Bawah -->
+  <!-- Panel Ringkasan Kasir di Bagian Bawah (Tersusun Rapi) -->
   <div class="summary-panel">
     <div class="summary-header">
       <div class="summary-title"><i class="fa-solid fa-cash-register"></i> Ringkasan Kasir Harian</div>
       <button class="btn-close-day" onclick="resetAllData()"><i class="fa-solid fa-power-off"></i> Waktunya Tutup</button>
     </div>
-    <div class="summary-grid" id="summaryGrid">
-      <!-- Diisi secara dinamis oleh JavaScript -->
+
+    <!-- Baris 1: Durasi -->
+    <div class="summary-section-title"><i class="fa-solid fa-clock"></i> Total Durasi Bermain (Jam)</div>
+    <div class="summary-grid-4" id="durationGrid"></div>
+
+    <!-- Baris 2: IDR -->
+    <div class="summary-section-title"><i class="fa-solid fa-wallet"></i> Pendapatan IDR (Per Station)</div>
+    <div class="summary-grid-4" id="revenueGrid"></div>
+
+    <!-- Baris 3: Total Payment Harian -->
+    <div class="summary-total-box">
+      <div class="summary-total-label"><i class="fa-solid fa-money-bill-wave"></i> Total Payment Harian</div>
+      <div class="summary-total-val" id="totalPaymentVal">Rp 0</div>
     </div>
   </div>
 
@@ -426,7 +466,6 @@
     const timers = {};
     const selectedConsoles = {};
     
-    // Data Akumulasi Harian Kasir
     let dailyStats = JSON.parse(localStorage.getItem('ps_daily_stats')) || {
       1: { totalSeconds: 0, revenue: 0 },
       2: { totalSeconds: 0, revenue: 0 },
@@ -434,7 +473,6 @@
       4: { totalSeconds: 0, revenue: 0 }
     };
 
-    // Generasi 4 Slot Station secara dinamis
     for (let i = 1; i <= 4; i++) {
       const card = document.createElement('div');
       card.className = 'timer-card';
@@ -448,19 +486,16 @@
         </div>
 
         <div class="controls">
-          <!-- Tombol Mulai Awal -->
           <button class="btn btn-start" id="btn-start-init-${i}" onclick="showConsoleSelection(${i})">
             <i class="fa-solid fa-play"></i> Mulai
           </button>
 
-          <!-- Pilihan Konsol -->
           <div class="preset-grid hidden" id="console-group-${i}">
             <button class="btn btn-preset btn-ps3" onclick="selectConsole(${i}, 'PS3')">PS 3</button>
             <button class="btn btn-preset btn-ps4" onclick="selectConsole(${i}, 'PS4')">PS 4</button>
             <button class="btn btn-preset btn-ps5" onclick="selectConsole(${i}, 'PS5')">PS 5</button>
           </div>
 
-          <!-- Pilihan Waktu Awal -->
           <div class="preset-grid hidden" id="preset-group-${i}">
             <button class="btn btn-preset" onclick="startTimer(${i}, 0.5)">30 Menit</button>
             <button class="btn btn-preset" onclick="startTimer(${i}, 1)">1 Jam</button>
@@ -473,7 +508,6 @@
             <button class="btn btn-preset fulltime" onclick="startTimer(${i}, 'full')">Full Time</button>
           </div>
 
-          <!-- Tombol Tambahan Waktu (Muncul saat Timer Berjalan, Di atas Selesai) -->
           <div class="extension-grid hidden" id="extension-group-${i}">
             <button class="btn btn-ext" onclick="addTime(${i}, 900)">+15 Mnt</button>
             <button class="btn btn-ext" onclick="addTime(${i}, 1800)">+30 Mnt</button>
@@ -481,24 +515,20 @@
             <button class="btn btn-ext" onclick="addTime(${i}, 7200)">+2 Jam</button>
           </div>
 
-          <!-- Tombol Selesai (Lebih Besar) -->
           <button class="btn btn-stop hidden" id="btn-finish-${i}" onclick="stopTimer(${i}, false)">
             <i class="fa-solid fa-square"></i> Selesai
           </button>
 
-          <!-- Tombol Restart (Lebih Besar dari Tambahan Waktu) -->
           <button class="btn btn-restart hidden" id="btn-restart-${i}" onclick="resetTimer(${i})">
             <i class="fa-solid fa-rotate-right"></i> Restart
           </button>
         </div>
 
-        <!-- Box Harga Real-time -->
         <div class="price-box hidden" id="price-box-${i}">
           <div class="price-label" id="console-label-${i}">Konsol: -</div>
           <div class="price-amount" id="price-${i}">Rp 0</div>
         </div>
 
-        <!-- Box Sisa Waktu (Muncul setelah Selesai diklik) -->
         <div class="remaining-box hidden" id="remaining-box-${i}">
           <div class="remaining-label">Sisa Waktu</div>
           <div class="remaining-value" id="remaining-val-${i}">00:00:00</div>
@@ -563,13 +593,11 @@
       updateTimer(id);
     }
 
-    // Fungsi Tambah Waktu Saat Berjalan
     function addTime(id, secondsToAdd) {
       const timer = timers[id];
       if (!timer) return;
 
       if (timer.isFullTime) {
-        // Jika dari full time lalu ditambah waktu, ubah jadi mode hitung mundur (fixed)
         timer.isFullTime = false;
         const elapsed = Math.floor((Date.now() - timer.startTime) / 1000);
         timer.durationSeconds = elapsed + secondsToAdd;
@@ -597,7 +625,7 @@
 
         if (remainingSeconds <= 0) {
           document.getElementById(`time-${id}`).innerText = "00:00:00";
-          document.getElementById(`time-${id}` ).style.color = "#ff0844";
+          document.getElementById(`time-${id}`).style.color = "#ff0844";
           stopTimer(id, true);
           return;
         }
@@ -631,12 +659,9 @@
       }
       
       document.getElementById(`price-${id}`).innerText = formatRupiah(finalPrice);
-      
-      // Tampilkan Sisa Waktu di bawah tombol Restart
       document.getElementById(`remaining-val-${id}`).innerText = remainingStr;
       document.getElementById(`remaining-box-${id}`).classList.remove('hidden');
 
-      // Update Akumulasi Kasir Harian
       dailyStats[id].totalSeconds += elapsedSeconds;
       dailyStats[id].revenue += finalPrice;
       saveDailyStats();
@@ -676,49 +701,44 @@
       document.getElementById(`console-label-${id}`).innerText = "Konsol: -";
     }
 
-    // --- Render Ringkasan Kasir di Bawah ---
+    // --- Render Ringkasan Kasir Tersusun Rapi ---
     function renderSummary() {
-      const summaryGrid = document.getElementById('summaryGrid');
-      summaryGrid.innerHTML = '';
+      const durationGrid = document.getElementById('durationGrid');
+      const revenueGrid = document.getElementById('revenueGrid');
+      const totalPaymentVal = document.getElementById('totalPaymentVal');
+
+      durationGrid.innerHTML = '';
+      revenueGrid.innerHTML = '';
 
       let totalOverallRevenue = 0;
 
-      // 1. Total jam dimainkan per Station (urut ke bawah)
+      // 1. Render Baris Durasi (Station 1-4)
       for (let i = 1; i <= 4; i++) {
         const hoursPlayed = (dailyStats[i].totalSeconds / 3600).toFixed(1);
         const item = document.createElement('div');
         item.className = 'summary-item';
         item.innerHTML = `
-          <div class="summary-label">Station ${i} (Durasi)</div>
+          <div class="summary-label">Station ${i}</div>
           <div class="summary-val">${hoursPlayed} Jam</div>
         `;
-        summaryGrid.appendChild(item);
+        durationGrid.appendChild(item);
       }
 
-      // 2. Pendapatan IDR per Station
+      // 2. Render Baris IDR (Station 1-4)
       for (let i = 1; i <= 4; i++) {
         const rev = dailyStats[i].revenue;
         totalOverallRevenue += rev;
         const item = document.createElement('div');
         item.className = 'summary-item';
         item.innerHTML = `
-          <div class="summary-label">IDR - Station ${i}</div>
-          <div class="summary-val">${formatRupiah(rev)}</div>
+          <div class="summary-label">Station ${i}</div>
+          <div class="summary-val" style="color: var(--accent-green);">${formatRupiah(rev)}</div>
         `;
-        summaryGrid.appendChild(item);
+        revenueGrid.appendChild(item);
       }
 
-      // 3. Total Pendapatan Harian (Payment)
-      const paymentItem = document.createElement('div');
-      paymentItem.className = 'summary-item';
-      paymentItem.style.gridColumn = 'span 2';
-      paymentItem.style.background = 'rgba(0, 255, 136, 0.05)';
-      paymentItem.style.borderColor = 'var(--accent-green)';
-      paymentItem.innerHTML = `
-        <div class="summary-label">Total Payment Harian</div>
-        <div class="summary-val payment">${formatRupiah(totalOverallRevenue)}</div>
-      `;
-      summaryGrid.appendChild(paymentItem);
+      // 3. Render Total Payment Harian
+      totalPaymentVal.innerText = formatRupiah(totalOverallRevenue);
     }
 
     function saveDailyStats() {
@@ -734,7 +754,6 @@
       }
     }
 
-    // --- LocalStorage Persistence Timer ---
     function saveTimersToStorage() {
       const dataToSave = {};
       for (let id in timers) {
@@ -779,7 +798,7 @@
               document.getElementById(`btn-start-init-${id}`).classList.add('hidden');
               document.getElementById(`extension-group-${id}`).classList.remove('hidden');
               document.getElementById(`btn-finish-${id}`).classList.remove('hidden');
-              document.getElementById(`price-box-${id}`).classList.remove('hidden');
+              document.getElementById(`price-box-${id}`).classList.add('hidden');
               document.getElementById(`card-${id}`).classList.add('active');
 
               timers[id] = {
