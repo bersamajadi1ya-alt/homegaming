@@ -76,7 +76,7 @@
       gap: 1.25rem;
       flex-grow: 1;
       align-items: stretch;
-      margin-bottom: 1rem;
+      margin-bottom: 1.5rem;
     }
 
     .timer-card {
@@ -155,6 +155,8 @@
     .btn-stop {
       background: linear-gradient(135deg, #ff0844, #ffb199);
       border: none;
+      padding: 0.8rem;
+      font-size: 1rem;
     }
 
     .btn-stop:hover {
@@ -164,6 +166,8 @@
     .btn-restart {
       background: linear-gradient(135deg, #9d4edd, #c77dff);
       border: none;
+      padding: 0.8rem;
+      font-size: 1rem;
     }
 
     .btn-restart:hover {
@@ -178,6 +182,25 @@
       max-height: 220px;
       overflow-y: auto;
       padding-right: 2px;
+    }
+
+    .extension-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.3rem;
+      margin-bottom: 0.3rem;
+    }
+
+    .btn-ext {
+      background: rgba(255, 183, 0, 0.1);
+      border: 1px solid var(--accent-yellow);
+      color: var(--accent-yellow);
+      font-size: 0.75rem;
+      padding: 0.4rem;
+    }
+    .btn-ext:hover {
+      background: var(--accent-yellow);
+      color: #000;
     }
 
     .btn-ps3 {
@@ -257,12 +280,113 @@
       margin-top: 2px;
     }
 
+    .remaining-box {
+      margin-top: 0.5rem;
+      background: rgba(255, 0, 127, 0.1);
+      border: 1px dashed var(--accent-pink);
+      border-radius: 8px;
+      padding: 0.5rem;
+      text-align: center;
+    }
+    .remaining-label {
+      font-size: 0.65rem;
+      color: var(--text-sub);
+      text-transform: uppercase;
+    }
+    .remaining-value {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--accent-pink);
+    }
+
+    /* Kasir Summary Panel */
+    .summary-panel {
+      background: var(--card-bg);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      border-radius: 16px;
+      padding: 1.2rem 1.5rem;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .summary-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 0.5rem;
+    }
+
+    .summary-title {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: var(--border-glow);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .btn-close-day {
+      background: linear-gradient(135deg, #ff0844, #9d4edd);
+      border: none;
+      color: #fff;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+    }
+    .btn-close-day:hover {
+      box-shadow: 0 0 12px var(--accent-pink);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .summary-item {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 0.7rem;
+      text-align: center;
+    }
+
+    .summary-label {
+      font-size: 0.7rem;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      margin-bottom: 3px;
+    }
+
+    .summary-val {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .summary-val.payment {
+      color: var(--accent-green);
+      font-size: 1.3rem;
+      text-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
+    }
+
     .hidden {
       display: none !important;
     }
 
     @media (max-width: 1024px) {
       .timer-container {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .summary-grid {
         grid-template-columns: repeat(2, 1fr);
       }
     }
@@ -277,10 +401,21 @@
     </div>
   </header>
 
+  <!-- Container Timer Utama -->
   <div class="timer-container" id="timerContainer"></div>
 
+  <!-- Panel Ringkasan Kasir di Bagian Bawah -->
+  <div class="summary-panel">
+    <div class="summary-header">
+      <div class="summary-title"><i class="fa-solid fa-cash-register"></i> Ringkasan Kasir Harian</div>
+      <button class="btn-close-day" onclick="resetAllData()"><i class="fa-solid fa-power-off"></i> Waktunya Tutup</button>
+    </div>
+    <div class="summary-grid" id="summaryGrid">
+      <!-- Diisi secara dinamis oleh JavaScript -->
+    </div>
+  </div>
+
   <script>
-    // Konfigurasi Tarif Konsol per Jam dan per Detik
     const rates = {
       'PS3': { hourly: 5000, extra10: 1000, perSecond: 5000 / 3600, name: 'PS 3' },
       'PS4': { hourly: 8000, extra10: 2000, perSecond: 8000 / 3600, name: 'PS 4' },
@@ -288,7 +423,17 @@
     };
 
     const timerContainer = document.getElementById('timerContainer');
+    const timers = {};
+    const selectedConsoles = {};
     
+    // Data Akumulasi Harian Kasir
+    let dailyStats = JSON.parse(localStorage.getItem('ps_daily_stats')) || {
+      1: { totalSeconds: 0, revenue: 0 },
+      2: { totalSeconds: 0, revenue: 0 },
+      3: { totalSeconds: 0, revenue: 0 },
+      4: { totalSeconds: 0, revenue: 0 }
+    };
+
     // Generasi 4 Slot Station secara dinamis
     for (let i = 1; i <= 4; i++) {
       const card = document.createElement('div');
@@ -303,18 +448,21 @@
         </div>
 
         <div class="controls">
+          <!-- Tombol Mulai Awal -->
           <button class="btn btn-start" id="btn-start-init-${i}" onclick="showConsoleSelection(${i})">
             <i class="fa-solid fa-play"></i> Mulai
           </button>
 
+          <!-- Pilihan Konsol -->
           <div class="preset-grid hidden" id="console-group-${i}">
             <button class="btn btn-preset btn-ps3" onclick="selectConsole(${i}, 'PS3')">PS 3</button>
             <button class="btn btn-preset btn-ps4" onclick="selectConsole(${i}, 'PS4')">PS 4</button>
             <button class="btn btn-preset btn-ps5" onclick="selectConsole(${i}, 'PS5')">PS 5</button>
           </div>
 
+          <!-- Pilihan Waktu Awal -->
           <div class="preset-grid hidden" id="preset-group-${i}">
-            <button class="btn btn-preset" onclick="startTimer(${i}, 0.5)">1/2 Jam</button>
+            <button class="btn btn-preset" onclick="startTimer(${i}, 0.5)">30 Menit</button>
             <button class="btn btn-preset" onclick="startTimer(${i}, 1)">1 Jam</button>
             <button class="btn btn-preset" onclick="startTimer(${i}, 1.5)">1 1/2 Jam</button>
             <button class="btn btn-preset" onclick="startTimer(${i}, 2)">2 Jam</button>
@@ -325,25 +473,39 @@
             <button class="btn btn-preset fulltime" onclick="startTimer(${i}, 'full')">Full Time</button>
           </div>
 
+          <!-- Tombol Tambahan Waktu (Muncul saat Timer Berjalan, Di atas Selesai) -->
+          <div class="extension-grid hidden" id="extension-group-${i}">
+            <button class="btn btn-ext" onclick="addTime(${i}, 900)">+15 Mnt</button>
+            <button class="btn btn-ext" onclick="addTime(${i}, 1800)">+30 Mnt</button>
+            <button class="btn btn-ext" onclick="addTime(${i}, 3600)">+1 Jam</button>
+            <button class="btn btn-ext" onclick="addTime(${i}, 7200)">+2 Jam</button>
+          </div>
+
+          <!-- Tombol Selesai (Lebih Besar) -->
           <button class="btn btn-stop hidden" id="btn-finish-${i}" onclick="stopTimer(${i}, false)">
             <i class="fa-solid fa-square"></i> Selesai
           </button>
 
+          <!-- Tombol Restart (Lebih Besar dari Tambahan Waktu) -->
           <button class="btn btn-restart hidden" id="btn-restart-${i}" onclick="resetTimer(${i})">
             <i class="fa-solid fa-rotate-right"></i> Restart
           </button>
         </div>
 
+        <!-- Box Harga Real-time -->
         <div class="price-box hidden" id="price-box-${i}">
           <div class="price-label" id="console-label-${i}">Konsol: -</div>
           <div class="price-amount" id="price-${i}">Rp 0</div>
         </div>
+
+        <!-- Box Sisa Waktu (Muncul setelah Selesai diklik) -->
+        <div class="remaining-box hidden" id="remaining-box-${i}">
+          <div class="remaining-label">Sisa Waktu</div>
+          <div class="remaining-value" id="remaining-val-${i}">00:00:00</div>
+        </div>
       `;
       timerContainer.appendChild(card);
     }
-
-    const timers = {};
-    const selectedConsoles = {};
 
     function showConsoleSelection(id) {
       document.getElementById(`btn-start-init-${id}`).classList.add('hidden');
@@ -357,7 +519,6 @@
       document.getElementById(`console-label-${id}`).innerText = `Konsol: ${rates[consoleType].name}`;
     }
 
-    // Perhitungan Final (Saat Selesai / Waktu Habis) berdasarkan aturan toleransi 4 menit
     function calculateFinalPrice(elapsedSeconds, consoleType) {
       const rate = rates[consoleType];
       const totalMinutes = elapsedSeconds / 60;
@@ -379,6 +540,7 @@
 
     function startTimer(id, mode) {
       document.getElementById(`preset-group-${id}`).classList.add('hidden');
+      document.getElementById(`extension-group-${id}`).classList.remove('hidden');
       document.getElementById(`btn-finish-${id}`).classList.remove('hidden');
       document.getElementById(`price-box-${id}`).classList.remove('hidden');
       document.getElementById(`card-${id}`).classList.add('active');
@@ -401,6 +563,23 @@
       updateTimer(id);
     }
 
+    // Fungsi Tambah Waktu Saat Berjalan
+    function addTime(id, secondsToAdd) {
+      const timer = timers[id];
+      if (!timer) return;
+
+      if (timer.isFullTime) {
+        // Jika dari full time lalu ditambah waktu, ubah jadi mode hitung mundur (fixed)
+        timer.isFullTime = false;
+        const elapsed = Math.floor((Date.now() - timer.startTime) / 1000);
+        timer.durationSeconds = elapsed + secondsToAdd;
+      } else {
+        timer.durationSeconds += secondsToAdd;
+      }
+      saveTimersToStorage();
+      updateTimer(id);
+    }
+
     function updateTimer(id) {
       const timer = timers[id];
       if (!timer) return;
@@ -408,7 +587,6 @@
       const elapsedSeconds = Math.floor((Date.now() - timer.startTime) / 1000);
       const rate = rates[timer.consoleType];
       
-      // Harga Bergerak Real-time setiap detik (Live Running)
       const liveRunningPrice = Math.round(elapsedSeconds * rate.perSecond);
       document.getElementById(`price-${id}`).innerText = formatRupiah(liveRunningPrice);
 
@@ -419,7 +597,7 @@
 
         if (remainingSeconds <= 0) {
           document.getElementById(`time-${id}`).innerText = "00:00:00";
-          document.getElementById(`time-${id}`).style.color = "#ff0844";
+          document.getElementById(`time-${id}` ).style.color = "#ff0844";
           stopTimer(id, true);
           return;
         }
@@ -430,23 +608,41 @@
 
     function stopTimer(id, isAutoStop = false) {
       const timer = timers[id];
-      if (timer) {
-        clearInterval(timer.interval);
-        timer.interval = null;
+      if (!timer) return;
 
-        const elapsedSeconds = Math.floor((Date.now() - timer.startTime) / 1000);
-        let finalPrice = 0;
+      clearInterval(timer.interval);
+      timer.interval = null;
 
-        // Ketika selesai, kunci nominal berdasarkan paket atau aturan kelebihan jam
-        if (timer.isFullTime) {
-          finalPrice = calculateFinalPrice(elapsedSeconds, timer.consoleType);
+      const elapsedSeconds = Math.floor((Date.now() - timer.startTime) / 1000);
+      let finalPrice = 0;
+      let remainingStr = "00:00:00";
+
+      if (timer.isFullTime) {
+        finalPrice = calculateFinalPrice(elapsedSeconds, timer.consoleType);
+        remainingStr = "00:00:00 (Full Time)";
+      } else {
+        finalPrice = timer.mode * rates[timer.consoleType].hourly;
+        const remSecs = timer.durationSeconds - elapsedSeconds;
+        if (remSecs > 0) {
+          remainingStr = formatTime(remSecs);
         } else {
-          finalPrice = timer.mode * rates[timer.consoleType].hourly;
+          remainingStr = "00:00:00 (Habis)";
         }
-        
-        document.getElementById(`price-${id}`).innerText = formatRupiah(finalPrice);
       }
+      
+      document.getElementById(`price-${id}`).innerText = formatRupiah(finalPrice);
+      
+      // Tampilkan Sisa Waktu di bawah tombol Restart
+      document.getElementById(`remaining-val-${id}`).innerText = remainingStr;
+      document.getElementById(`remaining-box-${id}`).classList.remove('hidden');
 
+      // Update Akumulasi Kasir Harian
+      dailyStats[id].totalSeconds += elapsedSeconds;
+      dailyStats[id].revenue += finalPrice;
+      saveDailyStats();
+      renderSummary();
+
+      document.getElementById(`extension-group-${id}`).classList.add('hidden');
       document.getElementById(`btn-finish-${id}`).classList.add('hidden');
       document.getElementById(`btn-restart-${id}`).classList.remove('hidden');
       document.getElementById(`card-${id}`).classList.remove('active');
@@ -472,13 +668,73 @@
       document.getElementById(`price-box-${id}`).classList.add('hidden');
       document.getElementById(`console-group-${id}`).classList.add('hidden');
       document.getElementById(`preset-group-${id}`).classList.add('hidden');
+      document.getElementById(`extension-group-${id}`).classList.add('hidden');
+      document.getElementById(`remaining-box-${id}`).classList.add('hidden');
       document.getElementById(`time-${id}`).innerText = "00:00:00";
       document.getElementById(`time-${id}`).style.color = "#ffffff";
       document.getElementById(`price-${id}`).innerText = "Rp 0";
       document.getElementById(`console-label-${id}`).innerText = "Konsol: -";
     }
 
-    // --- LocalStorage Persistence ---
+    // --- Render Ringkasan Kasir di Bawah ---
+    function renderSummary() {
+      const summaryGrid = document.getElementById('summaryGrid');
+      summaryGrid.innerHTML = '';
+
+      let totalOverallRevenue = 0;
+
+      // 1. Total jam dimainkan per Station (urut ke bawah)
+      for (let i = 1; i <= 4; i++) {
+        const hoursPlayed = (dailyStats[i].totalSeconds / 3600).toFixed(1);
+        const item = document.createElement('div');
+        item.className = 'summary-item';
+        item.innerHTML = `
+          <div class="summary-label">Station ${i} (Durasi)</div>
+          <div class="summary-val">${hoursPlayed} Jam</div>
+        `;
+        summaryGrid.appendChild(item);
+      }
+
+      // 2. Pendapatan IDR per Station
+      for (let i = 1; i <= 4; i++) {
+        const rev = dailyStats[i].revenue;
+        totalOverallRevenue += rev;
+        const item = document.createElement('div');
+        item.className = 'summary-item';
+        item.innerHTML = `
+          <div class="summary-label">IDR - Station ${i}</div>
+          <div class="summary-val">${formatRupiah(rev)}</div>
+        `;
+        summaryGrid.appendChild(item);
+      }
+
+      // 3. Total Pendapatan Harian (Payment)
+      const paymentItem = document.createElement('div');
+      paymentItem.className = 'summary-item';
+      paymentItem.style.gridColumn = 'span 2';
+      paymentItem.style.background = 'rgba(0, 255, 136, 0.05)';
+      paymentItem.style.borderColor = 'var(--accent-green)';
+      paymentItem.innerHTML = `
+        <div class="summary-label">Total Payment Harian</div>
+        <div class="summary-val payment">${formatRupiah(totalOverallRevenue)}</div>
+      `;
+      summaryGrid.appendChild(paymentItem);
+    }
+
+    function saveDailyStats() {
+      localStorage.setItem('ps_daily_stats', JSON.stringify(dailyStats));
+    }
+
+    function resetAllData() {
+      if (confirm('Yakin ingin mereset seluruh data harian kasir ("Waktunya Tutup")?')) {
+        localStorage.removeItem('ps_daily_stats');
+        localStorage.removeItem('ps_rental_timers');
+        localStorage.removeItem('ps_rental_consoles');
+        location.reload();
+      }
+    }
+
+    // --- LocalStorage Persistence Timer ---
     function saveTimersToStorage() {
       const dataToSave = {};
       for (let id in timers) {
@@ -518,17 +774,10 @@
               document.getElementById(`btn-start-init-${id}`).classList.add('hidden');
               document.getElementById(`btn-finish-${id}`).classList.add('hidden');
               document.getElementById(`btn-restart-${id}`).classList.remove('hidden');
-              document.getElementById(`price-box-${id}`).classList.remove('hidden');
-              
-              if (data.isFullTime) {
-                document.getElementById(`time-${id}`).innerText = formatTime(elapsedSeconds);
-                document.getElementById(`price-${id}`).innerText = formatRupiah(calculateFinalPrice(elapsedSeconds, data.consoleType));
-              } else {
-                document.getElementById(`time-${id}`).innerText = formatTime(data.durationSeconds);
-                document.getElementById(`price-${id}`).innerText = formatRupiah(data.mode * rates[data.consoleType].hourly);
-              }
+              document.getElementById(`price-box-${id}`).classList.add('hidden');
             } else if (data.isRunning) {
               document.getElementById(`btn-start-init-${id}`).classList.add('hidden');
+              document.getElementById(`extension-group-${id}`).classList.remove('hidden');
               document.getElementById(`btn-finish-${id}`).classList.remove('hidden');
               document.getElementById(`price-box-${id}`).classList.remove('hidden');
               document.getElementById(`card-${id}`).classList.add('active');
@@ -546,6 +795,7 @@
           }
         }
       }
+      renderSummary();
     }
 
     window.addEventListener('DOMContentLoaded', () => {
