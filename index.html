@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>HOME GAMING - PS Rental Timer</title>
+  <!-- Favicon / Thumbnail Browser -->
+  <link rel="icon" type="image/png" href="https://files.catbox.moe/2ixv2d.png">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <style>
     :root {
@@ -61,9 +63,10 @@
       text-shadow: 0 0 12px var(--border-glow), 0 0 24px var(--border-glow);
     }
 
-    .brand i {
-      color: var(--border-glow);
-      font-size: 2.8rem;
+    .brand img {
+      width: 48px;
+      height: 48px;
+      object-fit: contain;
       filter: drop-shadow(0 0 8px var(--border-glow));
     }
 
@@ -184,6 +187,40 @@
       padding: 0.45rem;
     }
 
+    /* Konsol Style Khusus */
+    .btn-ps3 {
+      border-color: #00f0ff;
+      color: #00f0ff;
+      background: rgba(0, 240, 255, 0.08);
+    }
+    .btn-ps3:hover {
+      background: #00f0ff;
+      color: #000;
+      box-shadow: 0 0 12px #00f0ff;
+    }
+
+    .btn-ps4 {
+      border-color: #ff007f;
+      color: #ff007f;
+      background: rgba(255, 0, 127, 0.08);
+    }
+    .btn-ps4:hover {
+      background: #ff007f;
+      color: #fff;
+      box-shadow: 0 0 12px #ff007f;
+    }
+
+    .btn-ps5 {
+      border-color: #ffb700;
+      color: #ffb700;
+      background: rgba(255, 183, 0, 0.08);
+    }
+    .btn-ps5:hover {
+      background: #ffb700;
+      color: #000;
+      box-shadow: 0 0 12px #ffb700;
+    }
+
     .btn-preset.fulltime {
       grid-column: span 2;
       background: rgba(255, 183, 0, 0.15);
@@ -235,7 +272,7 @@
 
   <header>
     <div class="brand">
-      <i class="fa-solid fa-gamepad"></i>
+      <img src="https://files.catbox.moe/2ixv2d.png" alt="Home Gaming Logo">
       <span>Home Gaming</span>
     </div>
   </header>
@@ -271,11 +308,11 @@
             <i class="fa-solid fa-play"></i> Mulai
           </button>
 
-          <!-- Pilihan Konsol (PS3, PS4, PS5) -->
+          <!-- Pilihan Konsol (PS3, PS4, PS5) dengan Tombol Sederhana & Warna Selaras -->
           <div class="preset-grid hidden" id="console-group-${i}">
-            <button class="btn btn-preset" onclick="selectConsole(${i}, 'PS3')">PS 3 (Rp 5k/jam)</button>
-            <button class="btn btn-preset" onclick="selectConsole(${i}, 'PS4')">PS 4 (Rp 8k/jam)</button>
-            <button class="btn btn-preset" onclick="selectConsole(${i}, 'PS5')">PS 5 (Rp 15k/jam)</button>
+            <button class="btn btn-preset btn-ps3" onclick="selectConsole(${i}, 'PS3')">PS 3</button>
+            <button class="btn btn-preset btn-ps4" onclick="selectConsole(${i}, 'PS4')">PS 4</button>
+            <button class="btn btn-preset btn-ps5" onclick="selectConsole(${i}, 'PS5')">PS 5</button>
           </div>
 
           <!-- Menu Pilihan Waktu -->
@@ -340,8 +377,6 @@
         isFullTime = true;
       } else {
         durationSeconds = mode * 3600;
-        const fixedPrice = mode * rates[consoleType].hourly;
-        document.getElementById(`price-${id}`).innerText = formatRupiah(fixedPrice);
       }
 
       timers[id] = {
@@ -363,29 +398,28 @@
       const elapsedSeconds = Math.floor((Date.now() - timer.startTime) / 1000);
       const rate = rates[timer.consoleType];
 
+      // Kalkulasi harga dinamis (mulai dari Rp 0, bergerak naik setiap detik berdasarkan waktu berjalan)
+      const totalMinutes = elapsedSeconds / 60;
+      let currentPrice = 0;
+
+      if (totalMinutes > 0) {
+        const fullHours = Math.floor(totalMinutes / 60);
+        const remainderMinutes = totalMinutes % 60;
+
+        currentPrice = fullHours * rate.hourly;
+
+        // Toleransi 4 menit per jam
+        if (remainderMinutes > 4) {
+          const excessMinutes = remainderMinutes - 4;
+          const extraBlocks = Math.ceil(excessMinutes / 10);
+          currentPrice += extraBlocks * rate.extra10;
+        }
+      }
+
+      document.getElementById(`price-${id}`).innerText = formatRupiah(currentPrice);
+
       if (timer.isFullTime) {
         document.getElementById(`time-${id}`).innerText = formatTime(elapsedSeconds);
-        
-        const totalMinutes = elapsedSeconds / 60;
-        let currentPrice = 0;
-
-        if (totalMinutes <= 0) {
-          currentPrice = 0;
-        } else {
-          const fullHours = Math.floor(totalMinutes / 60);
-          const remainderMinutes = totalMinutes % 60;
-
-          currentPrice = fullHours * rate.hourly;
-
-          // Toleransi 4 menit (jika lewat dari 4 menit, hitung blok 10 menit berikutnya)
-          if (remainderMinutes > 4) {
-            const excessMinutes = remainderMinutes - 4;
-            const extraBlocks = Math.ceil(excessMinutes / 10);
-            currentPrice += extraBlocks * rate.extra10;
-          }
-        }
-
-        document.getElementById(`price-${id}`).innerText = formatRupiah(currentPrice);
       } else {
         const remainingSeconds = timer.durationSeconds - elapsedSeconds;
 
@@ -409,6 +443,13 @@
       document.getElementById(`btn-finish-${id}`).classList.add('hidden');
       document.getElementById(`btn-restart-${id}`).classList.remove('hidden');
       document.getElementById(`card-${id}`).classList.remove('active');
+
+      // Jika mode preset selesai, kunci harga pada nilai fix sesuai durasi paket
+      const timer = timers[id];
+      if (timer && !timer.isFullTime) {
+        const fixedPrice = timer.mode * rates[timer.consoleType].hourly;
+        document.getElementById(`price-${id}`).innerText = formatRupiah(fixedPrice);
+      }
 
       saveTimersToStorage();
 
@@ -478,10 +519,11 @@
               document.getElementById(`price-box-${id}`).classList.remove('hidden');
               
               const elapsedSeconds = Math.floor((Date.now() - data.startTime) / 1000);
+              const rate = rates[data.consoleType];
+              
               if (data.isFullTime) {
                 document.getElementById(`time-${id}`).innerText = formatTime(elapsedSeconds);
                 const totalMinutes = elapsedSeconds / 60;
-                const rate = rates[data.consoleType];
                 let currentPrice = 0;
                 if (totalMinutes > 0) {
                   const fullHours = Math.floor(totalMinutes / 60);
@@ -496,7 +538,7 @@
                 document.getElementById(`price-${id}`).innerText = formatRupiah(currentPrice);
               } else {
                 document.getElementById(`time-${id}`).innerText = formatTime(data.durationSeconds);
-                document.getElementById(`price-${id}`).innerText = formatRupiah(data.mode * rates[data.consoleType].hourly);
+                document.getElementById(`price-${id}`).innerText = formatRupiah(data.mode * rate.hourly);
               }
             } else if (data.isRunning) {
               document.getElementById(`btn-start-init-${id}`).classList.add('hidden');
