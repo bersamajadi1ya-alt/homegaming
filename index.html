@@ -180,7 +180,6 @@
       padding-right: 2px;
     }
 
-    /* Warna Selaras untuk Pilihan Konsol */
     .btn-ps3 {
       border-color: #00f0ff;
       color: #00f0ff;
@@ -281,11 +280,11 @@
   <div class="timer-container" id="timerContainer"></div>
 
   <script>
-    // Konfigurasi Tarif Konsol
+    // Konfigurasi Tarif Konsol per Jam dan per Detik
     const rates = {
-      'PS3': { hourly: 5000, extra10: 1000, name: 'PS 3' },
-      'PS4': { hourly: 8000, extra10: 2000, name: 'PS 4' },
-      'PS5': { hourly: 15000, extra10: 3000, name: 'PS 5' }
+      'PS3': { hourly: 5000, extra10: 1000, perSecond: 5000 / 3600, name: 'PS 3' },
+      'PS4': { hourly: 8000, extra10: 2000, perSecond: 8000 / 3600, name: 'PS 4' },
+      'PS5': { hourly: 15000, extra10: 3000, perSecond: 15000 / 3600, name: 'PS 5' }
     };
 
     const timerContainer = document.getElementById('timerContainer');
@@ -304,19 +303,16 @@
         </div>
 
         <div class="controls">
-          <!-- Tombol Mulai Awal -->
           <button class="btn btn-start" id="btn-start-init-${i}" onclick="showConsoleSelection(${i})">
             <i class="fa-solid fa-play"></i> Mulai
           </button>
 
-          <!-- Pilihan Konsol (Sederhana dengan Warna Selaras) -->
           <div class="preset-grid hidden" id="console-group-${i}">
             <button class="btn btn-preset btn-ps3" onclick="selectConsole(${i}, 'PS3')">PS 3</button>
             <button class="btn btn-preset btn-ps4" onclick="selectConsole(${i}, 'PS4')">PS 4</button>
             <button class="btn btn-preset btn-ps5" onclick="selectConsole(${i}, 'PS5')">PS 5</button>
           </div>
 
-          <!-- Menu Pilihan Waktu -->
           <div class="preset-grid hidden" id="preset-group-${i}">
             <button class="btn btn-preset" onclick="startTimer(${i}, 0.5)">1/2 Jam</button>
             <button class="btn btn-preset" onclick="startTimer(${i}, 1)">1 Jam</button>
@@ -329,12 +325,10 @@
             <button class="btn btn-preset fulltime" onclick="startTimer(${i}, 'full')">Full Time</button>
           </div>
 
-          <!-- Tombol Selesai -->
           <button class="btn btn-stop hidden" id="btn-finish-${i}" onclick="stopTimer(${i}, false)">
             <i class="fa-solid fa-square"></i> Selesai
           </button>
 
-          <!-- Tombol Restart -->
           <button class="btn btn-restart hidden" id="btn-restart-${i}" onclick="resetTimer(${i})">
             <i class="fa-solid fa-rotate-right"></i> Restart
           </button>
@@ -363,8 +357,8 @@
       document.getElementById(`console-label-${id}`).innerText = `Konsol: ${rates[consoleType].name}`;
     }
 
-    // Fungsi Kalkulasi Harga Berdasarkan Waktu Berjalan (Mulai dari Rp 0)
-    function calculateDynamicPrice(elapsedSeconds, consoleType) {
+    // Perhitungan Final (Saat Selesai / Waktu Habis) berdasarkan aturan toleransi 4 menit
+    function calculateFinalPrice(elapsedSeconds, consoleType) {
       const rate = rates[consoleType];
       const totalMinutes = elapsedSeconds / 60;
       if (totalMinutes <= 0) return 0;
@@ -374,7 +368,6 @@
 
       let currentPrice = fullHours * rate.hourly;
 
-      // Toleransi 4 menit per jam
       if (remainderMinutes > 4) {
         const excessMinutes = remainderMinutes - 4;
         const extraBlocks = Math.ceil(excessMinutes / 10);
@@ -413,10 +406,11 @@
       if (!timer) return;
       
       const elapsedSeconds = Math.floor((Date.now() - timer.startTime) / 1000);
+      const rate = rates[timer.consoleType];
       
-      // Harga dinamis bergerak naik dari Rp 0 berdasarkan aturan waktu & toleransi
-      const currentPrice = calculateDynamicPrice(elapsedSeconds, timer.consoleType);
-      document.getElementById(`price-${id}`).innerText = formatRupiah(currentPrice);
+      // Harga Bergerak Real-time setiap detik (Live Running)
+      const liveRunningPrice = Math.round(elapsedSeconds * rate.perSecond);
+      document.getElementById(`price-${id}`).innerText = formatRupiah(liveRunningPrice);
 
       if (timer.isFullTime) {
         document.getElementById(`time-${id}`).innerText = formatTime(elapsedSeconds);
@@ -435,9 +429,22 @@
     }
 
     function stopTimer(id, isAutoStop = false) {
-      if (timers[id]) {
-        clearInterval(timers[id].interval);
-        timers[id].interval = null;
+      const timer = timers[id];
+      if (timer) {
+        clearInterval(timer.interval);
+        timer.interval = null;
+
+        const elapsedSeconds = Math.floor((Date.now() - timer.startTime) / 1000);
+        let finalPrice = 0;
+
+        // Ketika selesai, kunci nominal berdasarkan paket atau aturan kelebihan jam
+        if (timer.isFullTime) {
+          finalPrice = calculateFinalPrice(elapsedSeconds, timer.consoleType);
+        } else {
+          finalPrice = timer.mode * rates[timer.consoleType].hourly;
+        }
+        
+        document.getElementById(`price-${id}`).innerText = formatRupiah(finalPrice);
       }
 
       document.getElementById(`btn-finish-${id}`).classList.add('hidden');
@@ -515,10 +522,11 @@
               
               if (data.isFullTime) {
                 document.getElementById(`time-${id}`).innerText = formatTime(elapsedSeconds);
+                document.getElementById(`price-${id}`).innerText = formatRupiah(calculateFinalPrice(elapsedSeconds, data.consoleType));
               } else {
                 document.getElementById(`time-${id}`).innerText = formatTime(data.durationSeconds);
+                document.getElementById(`price-${id}`).innerText = formatRupiah(data.mode * rates[data.consoleType].hourly);
               }
-              document.getElementById(`price-${id}`).innerText = formatRupiah(calculateDynamicPrice(elapsedSeconds, data.consoleType));
             } else if (data.isRunning) {
               document.getElementById(`btn-start-init-${id}`).classList.add('hidden');
               document.getElementById(`btn-finish-${id}`).classList.remove('hidden');
