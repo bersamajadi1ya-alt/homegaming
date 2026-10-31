@@ -44,7 +44,6 @@
       overflow-x: hidden;
     }
 
-    /* Header */
     header {
       text-align: center;
       padding: 0.5rem 0 1.5rem 0;
@@ -68,7 +67,6 @@
       filter: drop-shadow(0 0 8px var(--border-glow));
     }
 
-    /* Main Container (4 Timers) */
     .timer-container {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -78,7 +76,6 @@
       margin-bottom: 1rem;
     }
 
-    /* Timer Card */
     .timer-card {
       background: var(--card-bg);
       border: 1px solid rgba(0, 240, 255, 0.2);
@@ -112,7 +109,6 @@
       gap: 8px;
     }
 
-    /* Time Display */
     .time-display {
       text-align: center;
       font-size: 2.2rem;
@@ -123,7 +119,6 @@
       text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
     }
 
-    /* Controls & Preset Buttons */
     .controls {
       display: flex;
       flex-direction: column;
@@ -201,7 +196,6 @@
       color: #000;
     }
 
-    /* Price Box */
     .price-box {
       margin-top: 0.8rem;
       background: rgba(0, 0, 0, 0.4);
@@ -230,7 +224,6 @@
       display: none !important;
     }
 
-    /* Responsive adjustments */
     @media (max-width: 1024px) {
       .timer-container {
         grid-template-columns: repeat(2, 1fr);
@@ -240,7 +233,6 @@
 </head>
 <body>
 
-  <!-- Header -->
   <header>
     <div class="brand">
       <i class="fa-solid fa-gamepad"></i>
@@ -248,15 +240,19 @@
     </div>
   </header>
 
-  <!-- Container Timer Utama -->
   <div class="timer-container" id="timerContainer"></div>
 
   <script>
-    const HOURLY_RATE = 5000; // Rp 5.000 per jam
+    // Konfigurasi Tarif Konsol
+    const rates = {
+      'PS3': { hourly: 5000, extra10: 1000, name: 'PS 3' },
+      'PS4': { hourly: 8000, extra10: 2000, name: 'PS 4' },
+      'PS5': { hourly: 15000, extra10: 3000, name: 'PS 5' }
+    };
 
-    // Generasi 4 Slot PS secara dinamis
     const timerContainer = document.getElementById('timerContainer');
     
+    // Generasi 4 Slot Station secara dinamis
     for (let i = 1; i <= 4; i++) {
       const card = document.createElement('div');
       card.className = 'timer-card';
@@ -271,11 +267,18 @@
 
         <div class="controls">
           <!-- Tombol Mulai Awal -->
-          <button class="btn btn-start" id="btn-start-init-${i}" onclick="showPresets(${i})">
+          <button class="btn btn-start" id="btn-start-init-${i}" onclick="showConsoleSelection(${i})">
             <i class="fa-solid fa-play"></i> Mulai
           </button>
 
-          <!-- Menu Pilihan Waktu (Awalnya tersembunyi) -->
+          <!-- Pilihan Konsol (PS3, PS4, PS5) -->
+          <div class="preset-grid hidden" id="console-group-${i}">
+            <button class="btn btn-preset" onclick="selectConsole(${i}, 'PS3')">PS 3 (Rp 5k/jam)</button>
+            <button class="btn btn-preset" onclick="selectConsole(${i}, 'PS4')">PS 4 (Rp 8k/jam)</button>
+            <button class="btn btn-preset" onclick="selectConsole(${i}, 'PS5')">PS 5 (Rp 15k/jam)</button>
+          </div>
+
+          <!-- Menu Pilihan Waktu -->
           <div class="preset-grid hidden" id="preset-group-${i}">
             <button class="btn btn-preset" onclick="startTimer(${i}, 0.5)">1/2 Jam</button>
             <button class="btn btn-preset" onclick="startTimer(${i}, 1)">1 Jam</button>
@@ -288,41 +291,47 @@
             <button class="btn btn-preset fulltime" onclick="startTimer(${i}, 'full')">Full Time</button>
           </div>
 
-          <!-- Tombol Selesai (Awalnya tersembunyi) -->
+          <!-- Tombol Selesai -->
           <button class="btn btn-stop hidden" id="btn-finish-${i}" onclick="stopTimer(${i}, false)">
             <i class="fa-solid fa-square"></i> Selesai
           </button>
 
-          <!-- Tombol Restart (Awalnya tersembunyi) -->
+          <!-- Tombol Restart -->
           <button class="btn btn-restart hidden" id="btn-restart-${i}" onclick="resetTimer(${i})">
             <i class="fa-solid fa-rotate-right"></i> Restart
           </button>
         </div>
 
-        <!-- Box Kalkulasi Harga (Awalnya tersembunyi) -->
         <div class="price-box hidden" id="price-box-${i}">
-          <div class="price-label">Total Biaya</div>
+          <div class="price-label" id="console-label-${i}">Konsol: -</div>
           <div class="price-amount" id="price-${i}">Rp 0</div>
         </div>
       `;
       timerContainer.appendChild(card);
     }
 
-    // State Manajemen Timer
     const timers = {};
+    const selectedConsoles = {};
 
-    function showPresets(id) {
+    function showConsoleSelection(id) {
       document.getElementById(`btn-start-init-${id}`).classList.add('hidden');
+      document.getElementById(`console-group-${id}`).classList.remove('hidden');
+    }
+
+    function selectConsole(id, consoleType) {
+      selectedConsoles[id] = consoleType;
+      document.getElementById(`console-group-${id}`).classList.add('hidden');
       document.getElementById(`preset-group-${id}`).classList.remove('hidden');
+      document.getElementById(`console-label-${id}`).innerText = `Konsol: ${rates[consoleType].name}`;
     }
 
     function startTimer(id, mode) {
       document.getElementById(`preset-group-${id}`).classList.add('hidden');
       document.getElementById(`btn-finish-${id}`).classList.remove('hidden');
-      document.getElementById(`btn-restart-${id}`).classList.add('hidden');
       document.getElementById(`price-box-${id}`).classList.remove('hidden');
       document.getElementById(`card-${id}`).classList.add('active');
 
+      const consoleType = selectedConsoles[id] || 'PS3';
       const startTime = Date.now();
       let durationSeconds = 0;
       let isFullTime = false;
@@ -331,31 +340,32 @@
         isFullTime = true;
       } else {
         durationSeconds = mode * 3600;
-        const fixedPrice = mode * HOURLY_RATE;
+        const fixedPrice = mode * rates[consoleType].hourly;
         document.getElementById(`price-${id}`).innerText = formatRupiah(fixedPrice);
       }
 
       timers[id] = {
-        interval: setInterval(() => updateTimer(id), 1000),
         startTime: startTime,
         durationSeconds: durationSeconds,
         isFullTime: isFullTime,
-        mode: mode
+        mode: mode,
+        consoleType: consoleType,
+        interval: setInterval(() => updateTimer(id), 1000)
       };
 
+      saveTimersToStorage();
       updateTimer(id);
     }
 
     function updateTimer(id) {
       const timer = timers[id];
+      if (!timer) return;
       const elapsedSeconds = Math.floor((Date.now() - timer.startTime) / 1000);
+      const rate = rates[timer.consoleType];
 
       if (timer.isFullTime) {
         document.getElementById(`time-${id}`).innerText = formatTime(elapsedSeconds);
         
-        // Perhitungan Khusus Full Time: 
-        // - Genap per jam = kelipatan Rp 5.000 (misal: 60 mnt = 5000, 120 mnt = 10000)
-        // - Kelebihan dihitung setiap 10 menit (600 detik) bertambah Rp 1.000
         const totalMinutes = elapsedSeconds / 60;
         let currentPrice = 0;
 
@@ -365,12 +375,13 @@
           const fullHours = Math.floor(totalMinutes / 60);
           const remainderMinutes = totalMinutes % 60;
 
-          currentPrice = fullHours * HOURLY_RATE;
+          currentPrice = fullHours * rate.hourly;
 
-          if (remainderMinutes > 0) {
-            // Setiap kelebihan 10 menit (pembulatan ke atas per 10 menit) tambah 1000
-            const extraBlocks = Math.ceil(remainderMinutes / 10);
-            currentPrice += extraBlocks * 1000;
+          // Toleransi 4 menit (jika lewat dari 4 menit, hitung blok 10 menit berikutnya)
+          if (remainderMinutes > 4) {
+            const excessMinutes = remainderMinutes - 4;
+            const extraBlocks = Math.ceil(excessMinutes / 10);
+            currentPrice += extraBlocks * rate.extra10;
           }
         }
 
@@ -392,11 +403,14 @@
     function stopTimer(id, isAutoStop = false) {
       if (timers[id]) {
         clearInterval(timers[id].interval);
+        timers[id].interval = null;
       }
 
       document.getElementById(`btn-finish-${id}`).classList.add('hidden');
       document.getElementById(`btn-restart-${id}`).classList.remove('hidden');
       document.getElementById(`card-${id}`).classList.remove('active');
+
+      saveTimersToStorage();
 
       if (isAutoStop) {
         document.getElementById(`time-${id}`).style.color = "#ffffff";
@@ -405,16 +419,110 @@
     }
 
     function resetTimer(id) {
+      if (timers[id]) {
+        clearInterval(timers[id].interval);
+        delete timers[id];
+      }
+      delete selectedConsoles[id];
+      saveTimersToStorage();
+
       document.getElementById(`btn-restart-${id}`).classList.add('hidden');
       document.getElementById(`btn-start-init-${id}`).classList.remove('hidden');
       document.getElementById(`price-box-${id}`).classList.add('hidden');
+      document.getElementById(`console-group-${id}`).classList.add('hidden');
       document.getElementById(`preset-group-${id}`).classList.add('hidden');
       document.getElementById(`time-${id}`).innerText = "00:00:00";
       document.getElementById(`time-${id}`).style.color = "#ffffff";
       document.getElementById(`price-${id}`).innerText = "Rp 0";
+      document.getElementById(`console-label-${id}`).innerText = "Konsol: -";
     }
 
-    // Utility Format Waktu (HH:MM:SS)
+    // --- LocalStorage Persistence Functions ---
+    function saveTimersToStorage() {
+      const dataToSave = {};
+      for (let id in timers) {
+        dataToSave[id] = {
+          startTime: timers[id].startTime,
+          durationSeconds: timers[id].durationSeconds,
+          isFullTime: timers[id].isFullTime,
+          mode: timers[id].mode,
+          consoleType: timers[id].consoleType,
+          isRunning: timers[id].interval ? true : false,
+          isFinished: document.getElementById(`btn-restart-${id}`).classList.contains('hidden') ? false : true
+        };
+      }
+      localStorage.setItem('ps_rental_timers', JSON.stringify(dataToSave));
+      localStorage.setItem('ps_rental_consoles', JSON.stringify(selectedConsoles));
+    }
+
+    function loadTimersFromStorage() {
+      const savedTimers = localStorage.getItem('ps_rental_timers');
+      const savedConsoles = localStorage.getItem('ps_rental_consoles');
+      
+      if (savedConsoles) {
+        Object.assign(selectedConsoles, JSON.parse(savedConsoles));
+      }
+
+      if (savedTimers) {
+        const parsed = JSON.parse(savedTimers);
+        for (let id in parsed) {
+          const data = parsed[id];
+          if (data && data.startTime) {
+            selectedConsoles[id] = data.consoleType;
+            document.getElementById(`console-label-${id}`).innerText = `Konsol: ${rates[data.consoleType].name}`;
+            
+            if (data.isFinished) {
+              document.getElementById(`btn-start-init-${id}`).classList.add('hidden');
+              document.getElementById(`btn-finish-${id}`).classList.add('hidden');
+              document.getElementById(`btn-restart-${id}`).classList.remove('hidden');
+              document.getElementById(`price-box-${id}`).classList.remove('hidden');
+              
+              const elapsedSeconds = Math.floor((Date.now() - data.startTime) / 1000);
+              if (data.isFullTime) {
+                document.getElementById(`time-${id}`).innerText = formatTime(elapsedSeconds);
+                const totalMinutes = elapsedSeconds / 60;
+                const rate = rates[data.consoleType];
+                let currentPrice = 0;
+                if (totalMinutes > 0) {
+                  const fullHours = Math.floor(totalMinutes / 60);
+                  const remainderMinutes = totalMinutes % 60;
+                  currentPrice = fullHours * rate.hourly;
+                  if (remainderMinutes > 4) {
+                    const excessMinutes = remainderMinutes - 4;
+                    const extraBlocks = Math.ceil(excessMinutes / 10);
+                    currentPrice += extraBlocks * rate.extra10;
+                  }
+                }
+                document.getElementById(`price-${id}`).innerText = formatRupiah(currentPrice);
+              } else {
+                document.getElementById(`time-${id}`).innerText = formatTime(data.durationSeconds);
+                document.getElementById(`price-${id}`).innerText = formatRupiah(data.mode * rates[data.consoleType].hourly);
+              }
+            } else if (data.isRunning) {
+              document.getElementById(`btn-start-init-${id}`).classList.add('hidden');
+              document.getElementById(`btn-finish-${id}`).classList.remove('hidden');
+              document.getElementById(`price-box-${id}`).classList.remove('hidden');
+              document.getElementById(`card-${id}`).classList.add('active');
+
+              timers[id] = {
+                startTime: data.startTime,
+                durationSeconds: data.durationSeconds,
+                isFullTime: data.isFullTime,
+                mode: data.mode,
+                consoleType: data.consoleType,
+                interval: setInterval(() => updateTimer(id), 1000)
+              };
+              updateTimer(id);
+            }
+          }
+        }
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadTimersFromStorage();
+    });
+
     function formatTime(totalSeconds) {
       const hours = Math.floor(totalSeconds / 3600);
       const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -425,7 +533,6 @@
         .join(":");
     }
 
-    // Utility Format Rupiah
     function formatRupiah(amount) {
       return 'Rp ' + amount.toLocaleString('id-ID');
     }
