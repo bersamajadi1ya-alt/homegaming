@@ -380,19 +380,54 @@
       color: #fff;
     }
 
-    .summary-total-box {
-      background: rgba(0, 255, 136, 0.05);
-      border: 1px solid var(--accent-green);
+    /* Grid Footer Bawah (Sejajar: Total Durasi & Total Payment Harian) */
+    .summary-footer-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 0.3rem;
+    }
+
+    .summary-total-box-duration {
+      background: rgba(0, 240, 255, 0.05);
+      border: 1px solid var(--border-glow);
       border-radius: 12px;
-      padding: 0.9rem;
+      padding: 0.9rem 1.2rem;
       text-align: center;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-top: 0.3rem;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.15);
     }
 
-    .summary-total-label {
+    .summary-total-label-duration {
+      font-size: 0.9rem;
+      color: var(--border-glow);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .summary-total-val-duration {
+      font-size: 1.4rem;
+      font-weight: 900;
+      color: var(--border-glow);
+      text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+    }
+
+    .summary-total-box-payment {
+      background: rgba(0, 255, 136, 0.05);
+      border: 1px solid var(--accent-green);
+      border-radius: 12px;
+      padding: 0.9rem 1.2rem;
+      text-align: center;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 0 15px rgba(0, 255, 136, 0.15);
+    }
+
+    .summary-total-label-payment {
       font-size: 0.9rem;
       color: var(--accent-green);
       font-weight: 700;
@@ -400,7 +435,7 @@
       letter-spacing: 1px;
     }
 
-    .summary-total-val {
+    .summary-total-val-payment {
       font-size: 1.4rem;
       font-weight: 900;
       color: var(--accent-green);
@@ -518,6 +553,9 @@
       .summary-grid-4 {
         grid-template-columns: repeat(2, 1fr);
       }
+      .summary-footer-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -544,9 +582,16 @@
     <div class="summary-section-title"><i class="fa-solid fa-wallet"></i> Pendapatan IDR (Per Station)</div>
     <div class="summary-grid-4" id="revenueGrid"></div>
 
-    <div class="summary-total-box">
-      <div class="summary-total-label"><i class="fa-solid fa-money-bill-wave"></i> Total Payment Harian</div>
-      <div class="summary-total-val" id="totalPaymentVal">Rp 0</div>
+    <!-- Baris Footer Bawah (Sejajar: Total Durasi & Total Payment Harian dengan Warna Beda) -->
+    <div class="summary-footer-grid">
+      <div class="summary-total-box-duration">
+        <div class="summary-total-label-duration"><i class="fa-solid fa-hourglass-half"></i> Total Durasi Harian</div>
+        <div class="summary-total-val-duration" id="totalDurationVal">0.0 Jam</div>
+      </div>
+      <div class="summary-total-box-payment">
+        <div class="summary-total-label-payment"><i class="fa-solid fa-money-bill-wave"></i> Total Payment Harian</div>
+        <div class="summary-total-val-payment" id="totalPaymentVal">Rp 0</div>
+      </div>
     </div>
   </div>
 
@@ -813,14 +858,19 @@
       const durationGrid = document.getElementById('durationGrid');
       const revenueGrid = document.getElementById('revenueGrid');
       const totalPaymentVal = document.getElementById('totalPaymentVal');
+      const totalDurationVal = document.getElementById('totalDurationVal');
 
       durationGrid.innerHTML = '';
       revenueGrid.innerHTML = '';
 
       let totalOverallRevenue = 0;
+      let totalOverallSeconds = 0;
 
       for (let i = 1; i <= 4; i++) {
-        const hoursPlayed = (dailyStats[i].totalSeconds / 3600).toFixed(1);
+        const totalSecs = dailyStats[i].totalSeconds;
+        totalOverallSeconds += totalSecs;
+        const hoursPlayed = (totalSecs / 3600).toFixed(1);
+        
         const item = document.createElement('div');
         item.className = 'summary-item';
         item.innerHTML = `
@@ -842,6 +892,10 @@
         revenueGrid.appendChild(item);
       }
 
+      // Hitung total durasi keseluruhan dalam format Jam (1 desimal)
+      const totalHoursOverall = (totalOverallSeconds / 3600).toFixed(1);
+
+      totalDurationVal.innerText = `${totalHoursOverall} Jam`;
       totalPaymentVal.innerText = formatRupiah(totalOverallRevenue);
     }
 
@@ -849,7 +903,6 @@
       localStorage.setItem('ps_daily_stats', JSON.stringify(dailyStats));
     }
 
-    // --- POP-UP MODAL LOGIC CUSTOM ---
     function closeModal() {
       document.getElementById('customModal').classList.remove('active');
     }
