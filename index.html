@@ -582,23 +582,23 @@
 
   <div class="summary-panel">
     <div class="summary-header">
-      <div class="summary-title"><i class="fa-solid fa-cash-register"></i> SUMMARY</div>
+      <div class="summary-title"><i class="fa-solid fa-cash-register"></i> Ringkasan Kasir Harian</div>
       <button class="btn-close-day" onclick="askCloseDay()"><i class="fa-solid fa-power-off"></i> Waktunya Tutup</button>
     </div>
 
-    <div class="summary-section-title"><i class="fa-solid fa-clock"></i> TIME</div>
+    <div class="summary-section-title"><i class="fa-solid fa-clock"></i> Total Durasi Bermain (Jam)</div>
     <div class="summary-grid-4" id="durationGrid"></div>
 
-    <div class="summary-section-title"><i class="fa-solid fa-wallet"></i> IDR</div>
+    <div class="summary-section-title"><i class="fa-solid fa-wallet"></i> Pendapatan IDR (Per Station)</div>
     <div class="summary-grid-4" id="revenueGrid"></div>
 
     <div class="summary-footer-grid">
       <div class="summary-total-box-duration">
-        <div class="summary-total-label-duration"><i class="fa-solid fa-hourglass-half"></i> Total Waktu</div>
+        <div class="summary-total-label-duration"><i class="fa-solid fa-hourglass-half"></i> Total Durasi Harian</div>
         <div class="summary-total-val-duration" id="totalDurationVal">0.0 Jam</div>
       </div>
       <div class="summary-total-box-payment">
-        <div class="summary-total-label-payment"><i class="fa-solid fa-money-bill-wave"></i> Total Payment</div>
+        <div class="summary-total-label-payment"><i class="fa-solid fa-money-bill-wave"></i> Total Payment Harian</div>
         <div class="summary-total-val-payment" id="totalPaymentVal">Rp 0</div>
       </div>
     </div>
@@ -670,6 +670,7 @@
             <button class="btn btn-preset fulltime" onclick="startTimer(${i}, 'full')">Full Time</button>
           </div>
 
+          <!-- Tombol Tambahan Waktu -->
           <div class="extension-grid hidden" id="extension-group-${i}">
             <button class="btn btn-ext" onclick="addTime(${i}, 900)">+15 Mnt</button>
             <button class="btn btn-ext" onclick="addTime(${i}, 1800)">+30 Mnt</button>
@@ -716,7 +717,6 @@
       document.getElementById(`console-label-${id}`).innerText = `Konsol: ${rates[consoleType].name}`;
     }
 
-    // Aturan Perhitungan Harga Full Time (Jika >= 50 menit kelebihan, masuk ke jam berikutnya)
     function calculateFinalPrice(elapsedSeconds, consoleType) {
       const rate = rates[consoleType];
       const totalMinutes = elapsedSeconds / 60;
@@ -758,7 +758,10 @@
         mode: mode,
         consoleType: consoleType,
         isPaused: false,
+        isFinished: false,
         pausedElapsed: 0,
+        lastLoggedElapsed: 0,
+        lastLoggedPrice: 0,
         interval: setInterval(() => updateTimer(id), 1000)
       };
 
@@ -766,16 +769,14 @@
       updateTimer(id);
     }
 
-    // Fungsi Jeda / Lanjut Timer
     function togglePause(id) {
       const timer = timers[id];
-      if (!timer) return;
+      if (!timer || timer.isFinished) return;
 
       const btnJeda = document.getElementById(`btn-jeda-${id}`);
       const card = document.getElementById(`card-${id}`);
 
       if (!timer.isPaused) {
-        // --- JEDA ---
         clearInterval(timer.interval);
         timer.interval = null;
         timer.isPaused = true;
@@ -787,7 +788,6 @@
         card.classList.remove('active');
         card.style.borderColor = 'var(--accent-yellow)';
       } else {
-        // --- LANJUT ---
         timer.startTime = Date.now() - (timer.pausedElapsed * 1000);
         timer.isPaused = false;
         timer.interval = setInterval(() => updateTimer(id), 1000);
@@ -801,24 +801,67 @@
       saveTimersToStorage();
     }
 
+    // FUNGSI TAMBAH WAKTU (Mendukung Penambahan Setelah Selesai)
     function addTime(id, secondsToAdd) {
       const timer = timers[id];
       if (!timer) return;
 
-      if (timer.isFullTime) {
-        timer.isFullTime = false;
-        const elapsed = timer.isPaused ? timer.pausedElapsed : Math.floor((Date.now() - timer.startTime) / 1000);
-        timer.durationSeconds = elapsed + secondsToAdd;
+      // Jika sebelumnya sudah 'Selesai', pulihkan hitungan awal dan kurangi statistik yang terlanjur tercatat
+      if (timer.isFinished) {
+        if (timer.lastLoggedElapsed > 0) {
+          dailyStats[id].totalSeconds = Math.max(0, dailyStats[id].totalSeconds - timer.lastLoggedElapsed);
+          dailyStats[id].revenue = Math.max(0, dailyStats[id].revenue - timer.lastLoggedPrice);
+          saveDailyStats();
+          renderSummary();
+        }
+
+        timer.isFinished = false;
+        
+        // Aktifkan kembali tampilan tombol & card
+        document.getElementById(`remaining-box-${id}`).classList.add('hidden');
+        document.getElementById(`btn-restart-${id}`).classList.add('hidden');
+        document.getElementById(`btn-finish-${id}`).classList.remove('hidden');
+        document.getElementById(`btn-jeda-${id}`).classList.remove('hidden');
+        document.getElementById(`price-box-${id}`).classList.remove('hidden');
+        document.getElementById(`card-${id}`).classList.add('active');
+        document.getElementById(`time-${id}`).style.color = "#ffffff";
+
+        // Lanjutkan waktu berjalan dari elapsed terakhir
+        const prevElapsed = timer.pausedElapsed > 0 ? timer.pausedElapsed : Math.floor((Date.now() - timer.startTime) / 1000);
+        timer.startTime = Date.now() - (prevElapsed * 1000);
+
+        if (timer.isFullTime) {
+          timer.isFullTime = false;
+          timer.durationSeconds = prevElapsed + secondsToAdd;
+        } else {
+          timer.durationSeconds = Math.max(timer.durationSeconds, prevElapsed) + secondsToAdd;
+        }
+
+        timer.isPaused = false;
+        const btnJeda = document.getElementById(`btn-jeda-${id}`);
+        btnJeda.innerHTML = '<i class="fa-solid fa-pause"></i> Jeda';
+        btnJeda.style.background = '';
+        btnJeda.style.color = '';
+
+        timer.interval = setInterval(() => updateTimer(id), 1000);
       } else {
-        timer.durationSeconds += secondsToAdd;
+        // Jika timer sedang berjalan normal
+        if (timer.isFullTime) {
+          timer.isFullTime = false;
+          const elapsed = timer.isPaused ? timer.pausedElapsed : Math.floor((Date.now() - timer.startTime) / 1000);
+          timer.durationSeconds = elapsed + secondsToAdd;
+        } else {
+          timer.durationSeconds += secondsToAdd;
+        }
       }
+
       saveTimersToStorage();
       updateTimer(id);
     }
 
     function updateTimer(id) {
       const timer = timers[id];
-      if (!timer || timer.isPaused) return;
+      if (!timer || timer.isPaused || timer.isFinished) return;
       
       const elapsedSeconds = Math.floor((Date.now() - timer.startTime) / 1000);
       const rate = rates[timer.consoleType];
@@ -851,7 +894,10 @@
         timer.interval = null;
       }
 
+      timer.isFinished = true;
       const elapsedSeconds = timer.isPaused ? timer.pausedElapsed : Math.floor((Date.now() - timer.startTime) / 1000);
+      timer.pausedElapsed = elapsedSeconds;
+
       let finalPrice = 0;
       let remainingStr = "00:00:00";
 
@@ -872,12 +918,14 @@
       document.getElementById(`remaining-val-${id}`).innerText = remainingStr;
       document.getElementById(`remaining-box-${id}`).classList.remove('hidden');
 
+      timer.lastLoggedElapsed = elapsedSeconds;
+      timer.lastLoggedPrice = finalPrice;
+
       dailyStats[id].totalSeconds += elapsedSeconds;
       dailyStats[id].revenue += finalPrice;
       saveDailyStats();
       renderSummary();
 
-      document.getElementById(`extension-group-${id}`).classList.add('hidden');
       document.getElementById(`btn-jeda-${id}`).classList.add('hidden');
       document.getElementById(`btn-finish-${id}`).classList.add('hidden');
       document.getElementById(`btn-restart-${id}`).classList.remove('hidden');
@@ -1018,9 +1066,11 @@
           mode: timers[id].mode,
           consoleType: timers[id].consoleType,
           isPaused: timers[id].isPaused,
+          isFinished: timers[id].isFinished,
           pausedElapsed: timers[id].pausedElapsed,
-          isRunning: timers[id].interval ? true : false,
-          isFinished: document.getElementById(`btn-restart-${id}`).classList.contains('hidden') ? false : true
+          lastLoggedElapsed: timers[id].lastLoggedElapsed,
+          lastLoggedPrice: timers[id].lastLoggedPrice,
+          isRunning: timers[id].interval ? true : false
         };
       }
       localStorage.setItem('ps_rental_timers', JSON.stringify(dataToSave));
@@ -1046,8 +1096,33 @@
             if (data.isFinished) {
               document.getElementById(`btn-start-init-${id}`).classList.add('hidden');
               document.getElementById(`btn-finish-${id}`).classList.add('hidden');
+              document.getElementById(`extension-group-${id}`).classList.remove('hidden');
               document.getElementById(`btn-restart-${id}`).classList.remove('hidden');
-              document.getElementById(`price-box-${id}`).classList.add('hidden');
+              document.getElementById(`price-box-${id}`).classList.remove('hidden');
+              
+              timers[id] = {
+                startTime: data.startTime,
+                durationSeconds: data.durationSeconds,
+                isFullTime: data.isFullTime,
+                mode: data.mode,
+                consoleType: data.consoleType,
+                isPaused: false,
+                isFinished: true,
+                pausedElapsed: data.pausedElapsed || 0,
+                lastLoggedElapsed: data.lastLoggedElapsed || 0,
+                lastLoggedPrice: data.lastLoggedPrice || 0,
+                interval: null
+              };
+
+              const elapsedSeconds = data.pausedElapsed || 0;
+              document.getElementById(`price-${id}`).innerText = formatRupiah(calculateFinalPrice(elapsedSeconds, data.consoleType));
+              
+              if (data.isFullTime) {
+                document.getElementById(`time-${id}`).innerText = formatTime(elapsedSeconds);
+              } else {
+                const remSecs = data.durationSeconds - elapsedSeconds;
+                document.getElementById(`time-${id}`).innerText = formatTime(remSecs > 0 ? remSecs : 0);
+              }
             } else if (data.isRunning || data.isPaused) {
               document.getElementById(`btn-start-init-${id}`).classList.add('hidden');
               document.getElementById(`extension-group-${id}`).classList.remove('hidden');
@@ -1062,19 +1137,20 @@
                 mode: data.mode,
                 consoleType: data.consoleType,
                 isPaused: data.isPaused || false,
+                isFinished: false,
                 pausedElapsed: data.pausedElapsed || 0,
+                lastLoggedElapsed: data.lastLoggedElapsed || 0,
+                lastLoggedPrice: data.lastLoggedPrice || 0,
                 interval: null
               };
 
               if (data.isPaused) {
-                // Restore paused state UI
                 const btnJeda = document.getElementById(`btn-jeda-${id}`);
                 btnJeda.innerHTML = '<i class="fa-solid fa-play"></i> Lanjut';
                 btnJeda.style.background = 'linear-gradient(135deg, #00ff88, #00b4d8)';
                 btnJeda.style.color = '#000';
                 document.getElementById(`card-${id}`).style.borderColor = 'var(--accent-yellow)';
                 
-                // Show static time & price based on pausedElapsed
                 const elapsedSeconds = data.pausedElapsed;
                 const rate = rates[data.consoleType];
                 document.getElementById(`price-${id}`).innerText = formatRupiah(Math.round(elapsedSeconds * rate.perSecond));
