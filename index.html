@@ -175,6 +175,17 @@
       color: #fff;
     }
 
+    .btn-jeda {
+      background: linear-gradient(135deg, #ffb700, #ff8500);
+      border: none;
+      color: #000;
+      font-weight: 700;
+      padding: 0.6rem;
+    }
+    .btn-jeda:hover {
+      box-shadow: 0 0 12px var(--accent-yellow);
+    }
+
     .preset-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -380,7 +391,6 @@
       color: #fff;
     }
 
-    /* Grid Footer Bawah (Sejajar: Total Durasi & Total Payment Harian) */
     .summary-footer-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -572,24 +582,23 @@
 
   <div class="summary-panel">
     <div class="summary-header">
-      <div class="summary-title"><i class="fa-solid fa-cash-register"></i> SUMMARY</div>
+      <div class="summary-title"><i class="fa-solid fa-cash-register"></i> Ringkasan Kasir Harian</div>
       <button class="btn-close-day" onclick="askCloseDay()"><i class="fa-solid fa-power-off"></i> Waktunya Tutup</button>
     </div>
 
-    <div class="summary-section-title"><i class="fa-solid fa-clock"></i> Time</div>
+    <div class="summary-section-title"><i class="fa-solid fa-clock"></i> Total Durasi Bermain (Jam)</div>
     <div class="summary-grid-4" id="durationGrid"></div>
 
-    <div class="summary-section-title"><i class="fa-solid fa-wallet"></i> IDR</div>
+    <div class="summary-section-title"><i class="fa-solid fa-wallet"></i> Pendapatan IDR (Per Station)</div>
     <div class="summary-grid-4" id="revenueGrid"></div>
 
-    <!-- Baris Footer Bawah (Sejajar: Total Durasi & Total Payment Harian dengan Warna Beda) -->
     <div class="summary-footer-grid">
       <div class="summary-total-box-duration">
-        <div class="summary-total-label-duration"><i class="fa-solid fa-hourglass-half"></i> Total Waktu</div>
+        <div class="summary-total-label-duration"><i class="fa-solid fa-hourglass-half"></i> Total Durasi Harian</div>
         <div class="summary-total-val-duration" id="totalDurationVal">0.0 Jam</div>
       </div>
       <div class="summary-total-box-payment">
-        <div class="summary-total-label-payment"><i class="fa-solid fa-money-bill-wave"></i> Total Payment</div>
+        <div class="summary-total-label-payment"><i class="fa-solid fa-money-bill-wave"></i> Total Payment Harian</div>
         <div class="summary-total-val-payment" id="totalPaymentVal">Rp 0</div>
       </div>
     </div>
@@ -668,6 +677,11 @@
             <button class="btn btn-ext" onclick="addTime(${i}, 7200)">+2 Jam</button>
           </div>
 
+          <!-- Tombol Jeda / Lanjut -->
+          <button class="btn btn-jeda hidden" id="btn-jeda-${i}" onclick="togglePause(${i})">
+            <i class="fa-solid fa-pause"></i> Jeda
+          </button>
+
           <button class="btn btn-stop hidden" id="btn-finish-${i}" onclick="stopTimer(${i}, false)">
             <i class="fa-solid fa-square"></i> Selesai
           </button>
@@ -702,6 +716,7 @@
       document.getElementById(`console-label-${id}`).innerText = `Konsol: ${rates[consoleType].name}`;
     }
 
+    // Aturan Perhitungan Harga Full Time (Jika >= 50 menit kelebihan, masuk ke jam berikutnya)
     function calculateFinalPrice(elapsedSeconds, consoleType) {
       const rate = rates[consoleType];
       const totalMinutes = elapsedSeconds / 60;
@@ -712,7 +727,9 @@
 
       let currentPrice = fullHours * rate.hourly;
 
-      if (remainderMinutes > 4) {
+      if (remainderMinutes >= 50) {
+        currentPrice = (fullHours + 1) * rate.hourly;
+      } else if (remainderMinutes > 4) {
         const excessMinutes = remainderMinutes - 4;
         const extraBlocks = Math.ceil(excessMinutes / 10);
         currentPrice += extraBlocks * rate.extra10;
@@ -724,6 +741,7 @@
     function startTimer(id, mode) {
       document.getElementById(`preset-group-${id}`).classList.add('hidden');
       document.getElementById(`extension-group-${id}`).classList.remove('hidden');
+      document.getElementById(`btn-jeda-${id}`).classList.remove('hidden');
       document.getElementById(`btn-finish-${id}`).classList.remove('hidden');
       document.getElementById(`price-box-${id}`).classList.remove('hidden');
       document.getElementById(`card-${id}`).classList.add('active');
@@ -739,11 +757,48 @@
         isFullTime: isFullTime,
         mode: mode,
         consoleType: consoleType,
+        isPaused: false,
+        pausedElapsed: 0,
         interval: setInterval(() => updateTimer(id), 1000)
       };
 
       saveTimersToStorage();
       updateTimer(id);
+    }
+
+    // Fungsi Jeda / Lanjut Timer
+    function togglePause(id) {
+      const timer = timers[id];
+      if (!timer) return;
+
+      const btnJeda = document.getElementById(`btn-jeda-${id}`);
+      const card = document.getElementById(`card-${id}`);
+
+      if (!timer.isPaused) {
+        // --- JEDA ---
+        clearInterval(timer.interval);
+        timer.interval = null;
+        timer.isPaused = true;
+        timer.pausedElapsed = Math.floor((Date.now() - timer.startTime) / 1000);
+
+        btnJeda.innerHTML = '<i class="fa-solid fa-play"></i> Lanjut';
+        btnJeda.style.background = 'linear-gradient(135deg, #00ff88, #00b4d8)';
+        btnJeda.style.color = '#000';
+        card.classList.remove('active');
+        card.style.borderColor = 'var(--accent-yellow)';
+      } else {
+        // --- LANJUT ---
+        timer.startTime = Date.now() - (timer.pausedElapsed * 1000);
+        timer.isPaused = false;
+        timer.interval = setInterval(() => updateTimer(id), 1000);
+
+        btnJeda.innerHTML = '<i class="fa-solid fa-pause"></i> Jeda';
+        btnJeda.style.background = '';
+        btnJeda.style.color = '';
+        card.classList.add('active');
+        card.style.borderColor = '';
+      }
+      saveTimersToStorage();
     }
 
     function addTime(id, secondsToAdd) {
@@ -752,7 +807,7 @@
 
       if (timer.isFullTime) {
         timer.isFullTime = false;
-        const elapsed = Math.floor((Date.now() - timer.startTime) / 1000);
+        const elapsed = timer.isPaused ? timer.pausedElapsed : Math.floor((Date.now() - timer.startTime) / 1000);
         timer.durationSeconds = elapsed + secondsToAdd;
       } else {
         timer.durationSeconds += secondsToAdd;
@@ -763,7 +818,7 @@
 
     function updateTimer(id) {
       const timer = timers[id];
-      if (!timer) return;
+      if (!timer || timer.isPaused) return;
       
       const elapsedSeconds = Math.floor((Date.now() - timer.startTime) / 1000);
       const rate = rates[timer.consoleType];
@@ -791,10 +846,12 @@
       const timer = timers[id];
       if (!timer) return;
 
-      clearInterval(timer.interval);
-      timer.interval = null;
+      if (timer.interval) {
+        clearInterval(timer.interval);
+        timer.interval = null;
+      }
 
-      const elapsedSeconds = Math.floor((Date.now() - timer.startTime) / 1000);
+      const elapsedSeconds = timer.isPaused ? timer.pausedElapsed : Math.floor((Date.now() - timer.startTime) / 1000);
       let finalPrice = 0;
       let remainingStr = "00:00:00";
 
@@ -821,9 +878,11 @@
       renderSummary();
 
       document.getElementById(`extension-group-${id}`).classList.add('hidden');
+      document.getElementById(`btn-jeda-${id}`).classList.add('hidden');
       document.getElementById(`btn-finish-${id}`).classList.add('hidden');
       document.getElementById(`btn-restart-${id}`).classList.remove('hidden');
       document.getElementById(`card-${id}`).classList.remove('active');
+      document.getElementById(`card-${id}`).style.borderColor = '';
 
       saveTimersToStorage();
 
@@ -835,11 +894,16 @@
 
     function resetTimer(id) {
       if (timers[id]) {
-        clearInterval(timers[id].interval);
+        if (timers[id].interval) clearInterval(timers[id].interval);
         delete timers[id];
       }
       delete selectedConsoles[id];
       saveTimersToStorage();
+
+      const btnJeda = document.getElementById(`btn-jeda-${id}`);
+      btnJeda.innerHTML = '<i class="fa-solid fa-pause"></i> Jeda';
+      btnJeda.style.background = '';
+      btnJeda.style.color = '';
 
       document.getElementById(`btn-restart-${id}`).classList.add('hidden');
       document.getElementById(`btn-start-init-${id}`).classList.remove('hidden');
@@ -848,6 +912,7 @@
       document.getElementById(`preset-group-${id}`).classList.add('hidden');
       document.getElementById(`extension-group-${id}`).classList.add('hidden');
       document.getElementById(`remaining-box-${id}`).classList.add('hidden');
+      document.getElementById(`card-${id}`).style.borderColor = '';
       document.getElementById(`time-${id}`).innerText = "00:00:00";
       document.getElementById(`time-${id}`).style.color = "#ffffff";
       document.getElementById(`price-${id}`).innerText = "Rp 0";
@@ -892,7 +957,6 @@
         revenueGrid.appendChild(item);
       }
 
-      // Hitung total durasi keseluruhan dalam format Jam (1 desimal)
       const totalHoursOverall = (totalOverallSeconds / 3600).toFixed(1);
 
       totalDurationVal.innerText = `${totalHoursOverall} Jam`;
@@ -953,6 +1017,8 @@
           isFullTime: timers[id].isFullTime,
           mode: timers[id].mode,
           consoleType: timers[id].consoleType,
+          isPaused: timers[id].isPaused,
+          pausedElapsed: timers[id].pausedElapsed,
           isRunning: timers[id].interval ? true : false,
           isFinished: document.getElementById(`btn-restart-${id}`).classList.contains('hidden') ? false : true
         };
@@ -977,19 +1043,17 @@
             selectedConsoles[id] = data.consoleType;
             document.getElementById(`console-label-${id}`).innerText = `Konsol: ${rates[data.consoleType].name}`;
             
-            const elapsedSeconds = Math.floor((Date.now() - data.startTime) / 1000);
-
             if (data.isFinished) {
               document.getElementById(`btn-start-init-${id}`).classList.add('hidden');
               document.getElementById(`btn-finish-${id}`).classList.add('hidden');
               document.getElementById(`btn-restart-${id}`).classList.remove('hidden');
               document.getElementById(`price-box-${id}`).classList.add('hidden');
-            } else if (data.isRunning) {
+            } else if (data.isRunning || data.isPaused) {
               document.getElementById(`btn-start-init-${id}`).classList.add('hidden');
               document.getElementById(`extension-group-${id}`).classList.remove('hidden');
+              document.getElementById(`btn-jeda-${id}`).classList.remove('hidden');
               document.getElementById(`btn-finish-${id}`).classList.remove('hidden');
-              document.getElementById(`price-box-${id}`).classList.add('hidden');
-              document.getElementById(`card-${id}`).classList.add('active');
+              document.getElementById(`price-box-${id}`).classList.remove('hidden');
 
               timers[id] = {
                 startTime: data.startTime,
@@ -997,9 +1061,34 @@
                 isFullTime: data.isFullTime,
                 mode: data.mode,
                 consoleType: data.consoleType,
-                interval: setInterval(() => updateTimer(id), 1000)
+                isPaused: data.isPaused || false,
+                pausedElapsed: data.pausedElapsed || 0,
+                interval: null
               };
-              updateTimer(id);
+
+              if (data.isPaused) {
+                // Restore paused state UI
+                const btnJeda = document.getElementById(`btn-jeda-${id}`);
+                btnJeda.innerHTML = '<i class="fa-solid fa-play"></i> Lanjut';
+                btnJeda.style.background = 'linear-gradient(135deg, #00ff88, #00b4d8)';
+                btnJeda.style.color = '#000';
+                document.getElementById(`card-${id}`).style.borderColor = 'var(--accent-yellow)';
+                
+                // Show static time & price based on pausedElapsed
+                const elapsedSeconds = data.pausedElapsed;
+                const rate = rates[data.consoleType];
+                document.getElementById(`price-${id}`).innerText = formatRupiah(Math.round(elapsedSeconds * rate.perSecond));
+                if (data.isFullTime) {
+                  document.getElementById(`time-${id}`).innerText = formatTime(elapsedSeconds);
+                } else {
+                  const remSecs = data.durationSeconds - elapsedSeconds;
+                  document.getElementById(`time-${id}`).innerText = formatTime(remSecs > 0 ? remSecs : 0);
+                }
+              } else {
+                timers[id].interval = setInterval(() => updateTimer(id), 1000);
+                document.getElementById(`card-${id}`).classList.add('active');
+                updateTimer(id);
+              }
             }
           }
         }
