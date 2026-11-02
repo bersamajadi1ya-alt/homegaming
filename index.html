@@ -586,7 +586,7 @@
       <button class="btn-close-day" onclick="askCloseDay()"><i class="fa-solid fa-power-off"></i> Waktunya Tutup</button>
     </div>
 
-    <div class="summary-section-title"><i class="fa-solid fa-clock"></i> TIMES</div>
+    <div class="summary-section-title"><i class="fa-solid fa-clock"></i> Waktu</div>
     <div class="summary-grid-4" id="durationGrid"></div>
 
     <div class="summary-section-title"><i class="fa-solid fa-wallet"></i> IDR</div>
@@ -670,7 +670,7 @@
             <button class="btn btn-preset fulltime" onclick="startTimer(${i}, 'full')">Full Time</button>
           </div>
 
-          <!-- Tombol Tambahan Waktu -->
+          <!-- Tombol Tambahan Waktu (Hanya muncul SETELAH Selesai diklik) -->
           <div class="extension-grid hidden" id="extension-group-${i}">
             <button class="btn btn-ext" onclick="addTime(${i}, 900)">+15 Mnt</button>
             <button class="btn btn-ext" onclick="addTime(${i}, 1800)">+30 Mnt</button>
@@ -678,11 +678,12 @@
             <button class="btn btn-ext" onclick="addTime(${i}, 7200)">+2 Jam</button>
           </div>
 
-          <!-- Tombol Jeda / Lanjut -->
+          <!-- Tombol Jeda / Lanjut (Hanya muncul SAAT BERJALAN) -->
           <button class="btn btn-jeda hidden" id="btn-jeda-${i}" onclick="togglePause(${i})">
             <i class="fa-solid fa-pause"></i> Jeda
           </button>
 
+          <!-- Tombol Selesai (Hanya muncul SAAT BERJALAN) -->
           <button class="btn btn-stop hidden" id="btn-finish-${i}" onclick="stopTimer(${i}, false)">
             <i class="fa-solid fa-square"></i> Selesai
           </button>
@@ -740,7 +741,7 @@
 
     function startTimer(id, mode) {
       document.getElementById(`preset-group-${id}`).classList.add('hidden');
-      document.getElementById(`extension-group-${id}`).classList.remove('hidden');
+      document.getElementById(`extension-group-${id}`).classList.add('hidden'); // Sembunyikan tambahan waktu saat berjalan
       document.getElementById(`btn-jeda-${id}`).classList.remove('hidden');
       document.getElementById(`btn-finish-${id}`).classList.remove('hidden');
       document.getElementById(`price-box-${id}`).classList.remove('hidden');
@@ -755,7 +756,7 @@
         startTime: startTime,
         durationSeconds: durationSeconds,
         isFullTime: isFullTime,
-        mode: mode,
+        mode: mode === 'full' ? 0 : mode,
         consoleType: consoleType,
         isPaused: false,
         isFinished: false,
@@ -801,13 +802,15 @@
       saveTimersToStorage();
     }
 
-    // FUNGSI TAMBAH WAKTU (Mendukung Penambahan Setelah Selesai)
+    // FUNGSI TAMBAH WAKTU SETELAH SELESAI (Mengikuti aturan pakem jam konsol)
     function addTime(id, secondsToAdd) {
       const timer = timers[id];
       if (!timer) return;
 
-      // Jika sebelumnya sudah 'Selesai', pulihkan hitungan awal dan kurangi statistik yang terlanjur tercatat
+      const hoursToAdd = secondsToAdd / 3600;
+
       if (timer.isFinished) {
+        // Kurangi statistik harian sebelumnya yang terlanjur tercatat saat klik selesai
         if (timer.lastLoggedElapsed > 0) {
           dailyStats[id].totalSeconds = Math.max(0, dailyStats[id].totalSeconds - timer.lastLoggedElapsed);
           dailyStats[id].revenue = Math.max(0, dailyStats[id].revenue - timer.lastLoggedPrice);
@@ -817,23 +820,24 @@
 
         timer.isFinished = false;
         
-        // Aktifkan kembali tampilan tombol & card
         document.getElementById(`remaining-box-${id}`).classList.add('hidden');
         document.getElementById(`btn-restart-${id}`).classList.add('hidden');
+        document.getElementById(`extension-group-${id}`).classList.add('hidden'); // Sembunyikan lagi tombol tambah waktu setelah dilanjut
         document.getElementById(`btn-finish-${id}`).classList.remove('hidden');
         document.getElementById(`btn-jeda-${id}`).classList.remove('hidden');
         document.getElementById(`price-box-${id}`).classList.remove('hidden');
         document.getElementById(`card-${id}`).classList.add('active');
         document.getElementById(`time-${id}`).style.color = "#ffffff";
 
-        // Lanjutkan waktu berjalan dari elapsed terakhir
         const prevElapsed = timer.pausedElapsed > 0 ? timer.pausedElapsed : Math.floor((Date.now() - timer.startTime) / 1000);
         timer.startTime = Date.now() - (prevElapsed * 1000);
 
         if (timer.isFullTime) {
           timer.isFullTime = false;
+          timer.mode = (prevElapsed / 3600) + hoursToAdd;
           timer.durationSeconds = prevElapsed + secondsToAdd;
         } else {
+          timer.mode += hoursToAdd;
           timer.durationSeconds = Math.max(timer.durationSeconds, prevElapsed) + secondsToAdd;
         }
 
@@ -844,15 +848,6 @@
         btnJeda.style.color = '';
 
         timer.interval = setInterval(() => updateTimer(id), 1000);
-      } else {
-        // Jika timer sedang berjalan normal
-        if (timer.isFullTime) {
-          timer.isFullTime = false;
-          const elapsed = timer.isPaused ? timer.pausedElapsed : Math.floor((Date.now() - timer.startTime) / 1000);
-          timer.durationSeconds = elapsed + secondsToAdd;
-        } else {
-          timer.durationSeconds += secondsToAdd;
-        }
       }
 
       saveTimersToStorage();
@@ -928,7 +923,11 @@
 
       document.getElementById(`btn-jeda-${id}`).classList.add('hidden');
       document.getElementById(`btn-finish-${id}`).classList.add('hidden');
+      
+      // Munculkan tombol tambahan waktu SETELAH diklik selesai
+      document.getElementById(`extension-group-${id}`).classList.remove('hidden');
       document.getElementById(`btn-restart-${id}`).classList.remove('hidden');
+      
       document.getElementById(`card-${id}`).classList.remove('active');
       document.getElementById(`card-${id}`).style.borderColor = '';
 
@@ -954,11 +953,11 @@
       btnJeda.style.color = '';
 
       document.getElementById(`btn-restart-${id}`).classList.add('hidden');
+      document.getElementById(`extension-group-${id}`).classList.add('hidden');
       document.getElementById(`btn-start-init-${id}`).classList.remove('hidden');
       document.getElementById(`price-box-${id}`).classList.add('hidden');
       document.getElementById(`console-group-${id}`).classList.add('hidden');
       document.getElementById(`preset-group-${id}`).classList.add('hidden');
-      document.getElementById(`extension-group-${id}`).classList.add('hidden');
       document.getElementById(`remaining-box-${id}`).classList.add('hidden');
       document.getElementById(`card-${id}`).style.borderColor = '';
       document.getElementById(`time-${id}`).innerText = "00:00:00";
@@ -1096,6 +1095,7 @@
             if (data.isFinished) {
               document.getElementById(`btn-start-init-${id}`).classList.add('hidden');
               document.getElementById(`btn-finish-${id}`).classList.add('hidden');
+              document.getElementById(`btn-jeda-${id}`).classList.add('hidden');
               document.getElementById(`extension-group-${id}`).classList.remove('hidden');
               document.getElementById(`btn-restart-${id}`).classList.remove('hidden');
               document.getElementById(`price-box-${id}`).classList.remove('hidden');
@@ -1125,7 +1125,7 @@
               }
             } else if (data.isRunning || data.isPaused) {
               document.getElementById(`btn-start-init-${id}`).classList.add('hidden');
-              document.getElementById(`extension-group-${id}`).classList.remove('hidden');
+              document.getElementById(`extension-group-${id}`).classList.add('hidden');
               document.getElementById(`btn-jeda-${id}`).classList.remove('hidden');
               document.getElementById(`btn-finish-${id}`).classList.remove('hidden');
               document.getElementById(`price-box-${id}`).classList.remove('hidden');
