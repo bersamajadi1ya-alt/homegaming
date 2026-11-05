@@ -186,11 +186,25 @@
       box-shadow: 0 0 12px var(--accent-yellow);
     }
 
+    .btn-back {
+      grid-column: span 2;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: var(--text-sub);
+      font-size: 0.8rem;
+      padding: 0.45rem;
+    }
+    .btn-back:hover {
+      background: rgba(255, 255, 255, 0.25);
+      color: #fff;
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+    }
+
     .preset-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 0.4rem;
-      max-height: 220px;
+      max-height: 250px;
       overflow-y: auto;
       padding-right: 2px;
     }
@@ -656,6 +670,9 @@
             <button class="btn btn-preset btn-ps3" onclick="selectConsole(${i}, 'PS3')">PS 3</button>
             <button class="btn btn-preset btn-ps4" onclick="selectConsole(${i}, 'PS4')">PS 4</button>
             <button class="btn btn-preset btn-ps5" onclick="selectConsole(${i}, 'PS5')">PS 5</button>
+            <button class="btn btn-preset btn-back" onclick="cancelSelection(${i})">
+              <i class="fa-solid fa-arrow-left"></i> Kembali
+            </button>
           </div>
 
           <div class="preset-grid hidden" id="preset-group-${i}">
@@ -668,6 +685,9 @@
             <button class="btn btn-preset" onclick="startTimer(${i}, 3.5)">3 1/2 Jam</button>
             <button class="btn btn-preset" onclick="startTimer(${i}, 4)">4 Jam</button>
             <button class="btn btn-preset fulltime" onclick="startTimer(${i}, 'full')">Full Time</button>
+            <button class="btn btn-preset btn-back" onclick="backToConsoleSelection(${i})">
+              <i class="fa-solid fa-arrow-left"></i> Kembali
+            </button>
           </div>
 
           <!-- Tombol Tambahan Waktu (Hanya muncul SETELAH Selesai diklik) -->
@@ -709,6 +729,18 @@
     function showConsoleSelection(id) {
       document.getElementById(`btn-start-init-${id}`).classList.add('hidden');
       document.getElementById(`console-group-${id}`).classList.remove('hidden');
+    }
+
+    function cancelSelection(id) {
+      document.getElementById(`console-group-${id}`).classList.add('hidden');
+      document.getElementById(`btn-start-init-${id}`).classList.remove('hidden');
+    }
+
+    function backToConsoleSelection(id) {
+      delete selectedConsoles[id];
+      document.getElementById(`preset-group-${id}`).classList.add('hidden');
+      document.getElementById(`console-group-${id}`).classList.remove('hidden');
+      document.getElementById(`console-label-${id}`).innerText = "Konsol: -";
     }
 
     function selectConsole(id, consoleType) {
