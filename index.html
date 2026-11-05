@@ -186,6 +186,21 @@
       box-shadow: 0 0 12px var(--accent-yellow);
     }
 
+    .btn-cancel-running {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: var(--text-sub);
+      font-size: 0.8rem;
+      padding: 0.5rem;
+    }
+
+    .btn-cancel-running:hover {
+      background: rgba(255, 8, 68, 0.2);
+      border-color: #ff0844;
+      color: #ff0844;
+      box-shadow: 0 0 10px rgba(255, 8, 68, 0.3);
+    }
+
     .btn-back {
       grid-column: span 2;
       background: rgba(255, 255, 255, 0.08);
@@ -708,6 +723,11 @@
             <i class="fa-solid fa-square"></i> Selesai
           </button>
 
+          <!-- Tombol Batal / Kembali Saat Berjalan (Sama sekali tidak dihitung ke kasir) -->
+          <button class="btn btn-cancel-running hidden" id="btn-cancel-running-${i}" onclick="cancelRunningTimer(${i})">
+            <i class="fa-solid fa-rotate-left"></i> Batal / Kembali
+          </button>
+
           <button class="btn btn-restart hidden" id="btn-restart-${i}" onclick="resetTimer(${i})">
             <i class="fa-solid fa-rotate-right"></i> Restart
           </button>
@@ -773,9 +793,10 @@
 
     function startTimer(id, mode) {
       document.getElementById(`preset-group-${id}`).classList.add('hidden');
-      document.getElementById(`extension-group-${id}`).classList.add('hidden'); // Sembunyikan tambahan waktu saat berjalan
+      document.getElementById(`extension-group-${id}`).classList.add('hidden');
       document.getElementById(`btn-jeda-${id}`).classList.remove('hidden');
       document.getElementById(`btn-finish-${id}`).classList.remove('hidden');
+      document.getElementById(`btn-cancel-running-${id}`).classList.remove('hidden'); // Munculkan tombol batal
       document.getElementById(`price-box-${id}`).classList.remove('hidden');
       document.getElementById(`card-${id}`).classList.add('active');
 
@@ -834,7 +855,40 @@
       saveTimersToStorage();
     }
 
-    // FUNGSI TAMBAH WAKTU SETELAH SELESAI (Mengikuti aturan pakem jam konsol)
+    // FUNGSI BATAL / KEMBALI SAAT TIMER BERJALAN (TIDAK DITHITUNG SAMA SEKALI SAAT BATAL)
+    function cancelRunningTimer(id) {
+      if (timers[id]) {
+        if (timers[id].interval) clearInterval(timers[id].interval);
+        delete timers[id];
+      }
+      delete selectedConsoles[id];
+      saveTimersToStorage();
+
+      const btnJeda = document.getElementById(`btn-jeda-${id}`);
+      btnJeda.innerHTML = '<i class="fa-solid fa-pause"></i> Jeda';
+      btnJeda.style.background = '';
+      btnJeda.style.color = '';
+
+      document.getElementById(`btn-jeda-${id}`).classList.add('hidden');
+      document.getElementById(`btn-finish-${id}`).classList.add('hidden');
+      document.getElementById(`btn-cancel-running-${id}`).classList.add('hidden');
+      document.getElementById(`btn-restart-${id}`).classList.add('hidden');
+      document.getElementById(`extension-group-${id}`).classList.add('hidden');
+      
+      document.getElementById(`btn-start-init-${id}`).classList.remove('hidden');
+      document.getElementById(`price-box-${id}`).classList.add('hidden');
+      document.getElementById(`console-group-${id}`).classList.add('hidden');
+      document.getElementById(`preset-group-${id}`).classList.add('hidden');
+      document.getElementById(`remaining-box-${id}`).classList.add('hidden');
+      
+      document.getElementById(`card-${id}`).classList.remove('active');
+      document.getElementById(`card-${id}`).style.borderColor = '';
+      document.getElementById(`time-${id}`).innerText = "00:00:00";
+      document.getElementById(`time-${id}`).style.color = "#ffffff";
+      document.getElementById(`price-${id}`).innerText = "Rp 0";
+      document.getElementById(`console-label-${id}`).innerText = "Konsol: -";
+    }
+
     function addTime(id, secondsToAdd) {
       const timer = timers[id];
       if (!timer) return;
@@ -842,7 +896,6 @@
       const hoursToAdd = secondsToAdd / 3600;
 
       if (timer.isFinished) {
-        // Kurangi statistik harian sebelumnya yang terlanjur tercatat saat klik selesai
         if (timer.lastLoggedElapsed > 0) {
           dailyStats[id].totalSeconds = Math.max(0, dailyStats[id].totalSeconds - timer.lastLoggedElapsed);
           dailyStats[id].revenue = Math.max(0, dailyStats[id].revenue - timer.lastLoggedPrice);
@@ -854,9 +907,10 @@
         
         document.getElementById(`remaining-box-${id}`).classList.add('hidden');
         document.getElementById(`btn-restart-${id}`).classList.add('hidden');
-        document.getElementById(`extension-group-${id}`).classList.add('hidden'); // Sembunyikan lagi tombol tambah waktu setelah dilanjut
+        document.getElementById(`extension-group-${id}`).classList.add('hidden');
         document.getElementById(`btn-finish-${id}`).classList.remove('hidden');
         document.getElementById(`btn-jeda-${id}`).classList.remove('hidden');
+        document.getElementById(`btn-cancel-running-${id}`).classList.remove('hidden');
         document.getElementById(`price-box-${id}`).classList.remove('hidden');
         document.getElementById(`card-${id}`).classList.add('active');
         document.getElementById(`time-${id}`).style.color = "#ffffff";
@@ -955,8 +1009,8 @@
 
       document.getElementById(`btn-jeda-${id}`).classList.add('hidden');
       document.getElementById(`btn-finish-${id}`).classList.add('hidden');
+      document.getElementById(`btn-cancel-running-${id}`).classList.add('hidden'); // Sembunyikan batal saat selesai
       
-      // Munculkan tombol tambahan waktu SETELAH diklik selesai
       document.getElementById(`extension-group-${id}`).classList.remove('hidden');
       document.getElementById(`btn-restart-${id}`).classList.remove('hidden');
       
@@ -972,30 +1026,7 @@
     }
 
     function resetTimer(id) {
-      if (timers[id]) {
-        if (timers[id].interval) clearInterval(timers[id].interval);
-        delete timers[id];
-      }
-      delete selectedConsoles[id];
-      saveTimersToStorage();
-
-      const btnJeda = document.getElementById(`btn-jeda-${id}`);
-      btnJeda.innerHTML = '<i class="fa-solid fa-pause"></i> Jeda';
-      btnJeda.style.background = '';
-      btnJeda.style.color = '';
-
-      document.getElementById(`btn-restart-${id}`).classList.add('hidden');
-      document.getElementById(`extension-group-${id}`).classList.add('hidden');
-      document.getElementById(`btn-start-init-${id}`).classList.remove('hidden');
-      document.getElementById(`price-box-${id}`).classList.add('hidden');
-      document.getElementById(`console-group-${id}`).classList.add('hidden');
-      document.getElementById(`preset-group-${id}`).classList.add('hidden');
-      document.getElementById(`remaining-box-${id}`).classList.add('hidden');
-      document.getElementById(`card-${id}`).style.borderColor = '';
-      document.getElementById(`time-${id}`).innerText = "00:00:00";
-      document.getElementById(`time-${id}`).style.color = "#ffffff";
-      document.getElementById(`price-${id}`).innerText = "Rp 0";
-      document.getElementById(`console-label-${id}`).innerText = "Konsol: -";
+      cancelRunningTimer(id);
     }
 
     function renderSummary() {
@@ -1128,6 +1159,7 @@
               document.getElementById(`btn-start-init-${id}`).classList.add('hidden');
               document.getElementById(`btn-finish-${id}`).classList.add('hidden');
               document.getElementById(`btn-jeda-${id}`).classList.add('hidden');
+              document.getElementById(`btn-cancel-running-${id}`).classList.add('hidden');
               document.getElementById(`extension-group-${id}`).classList.remove('hidden');
               document.getElementById(`btn-restart-${id}`).classList.remove('hidden');
               document.getElementById(`price-box-${id}`).classList.remove('hidden');
@@ -1160,6 +1192,7 @@
               document.getElementById(`extension-group-${id}`).classList.add('hidden');
               document.getElementById(`btn-jeda-${id}`).classList.remove('hidden');
               document.getElementById(`btn-finish-${id}`).classList.remove('hidden');
+              document.getElementById(`btn-cancel-running-${id}`).classList.remove('hidden');
               document.getElementById(`price-box-${id}`).classList.remove('hidden');
 
               timers[id] = {
